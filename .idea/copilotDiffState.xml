@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="/rows (snapshot).json">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="/rows (snapshot).json" />
+              <option name="originalContent" value="[&#10;  [&#10;    &quot;27&quot;,                           // [0]  internal row number&#10;    &quot;JjCK-VggXC4yi_GmQns_81&quot;,      // [1]  unique row key&#10;    &quot;&quot;,                     // [2]  POI name&#10;    &quot;51.101310, 5.149437&quot;,          // [3]  coordinates&#10;    &quot;Chiro Genebos&quot;,                // [4]  current owner  ← will be overwritten&#10;    &quot;Ham&quot;,                          // [5]  municipality&#10;    &quot;38&quot;,                           // [6]  score / numeric field&#10;    &quot;⬜⬜⬜⬜&quot;,          // [7]  emoji progress bar&#10;    &quot;Aftand tot locatie: 0.034 km&quot;, // [8]  distance string&#10;    &quot;&quot;,                             // [9]&#10;    &quot;&quot;,                             // [10]&#10;    &quot;aLMBr9-Ya-4Eeo0HeVzkz5 , uuAZS83JSsd6GsfzBHHuLQ&quot;,  // [11] capture keys&#10;    &quot;Nog -44:38:23 tot het spel begint!&quot;,                 // [12] status string&#10;], &#10;]" />
+              <option name="updatedContent" value="[&#10;  [&#10;    &quot;27&quot;,&#10;    &quot;JjCK-VggXC4yi_GmQns_81&quot;,&#10;    &quot;&quot;,&#10;    &quot;51.101310, 5.149437&quot;,&#10;    &quot;Chiro Genebos&quot;,&#10;    &quot;Ham&quot;,&#10;    &quot;38&quot;,&#10;    &quot;⬜⬜⬜⬜&quot;,&#10;    &quot;Aftand tot locatie: 0.034 km&quot;,&#10;    &quot;&quot;,&#10;    &quot;&quot;,&#10;    &quot;aLMBr9-Ya-4Eeo0HeVzkz5 , uuAZS83JSsd6GsfzBHHuLQ&quot;,&#10;    &quot;Nog -44:38:23 tot het spel begint!&quot;&#10;  ]&#10;]" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
