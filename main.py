@@ -1,64 +1,80 @@
 """
-Change the owner (Team) of any POI in the Locations table.
+Change the owner of every POI in rows.json to NEW_OWNER.
+
+Image handling:
+  - If a custom base64 image path is passed via --image, it is sent inline
+    as a data URI (same format as a fresh capture).
+  - Otherwise the existing image URL already in the row is reused as-is
+    (i.e. the last capture photo that was on the server).
+  - If the row has no image at all, the field is left empty.
 
 Usage:
-  1. Fill in SYNC_TOKEN with a fresh one from a HAR export.
-  2. Fill in the ROW dict for the POI you want to change.
-  3. Run: python change_poi_owner.py
+  python change_poi_owner.py                        # reuse existing images
+  python change_poi_owner.py --image photo.png      # attach new image to all POIs
+  python change_poi_owner.py --dry-run              # print rows without sending
 """
-from time import sleep
-from pathlib import Path
 
 import requests
 import json
-from datetime import datetime, timezone
+import random
+import sys
+import base64
+import time
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 # ── CONFIGURE ─────────────────────────────────────────────────────────────────
+
+NEW_OWNER  = "Chiro Oostham"
+ROWS_FILE  = "rows.json"
 
 # Grab a fresh syncToken from a new HAR when this expires (~90 days).
 SYNC_TOKEN = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-    ".eyJhcHBJZCI6IjA0ZWQzMjI1LThiZGYtNDkzYS1iODRiLTRmY2RlNDU4ZWUwNyIsImFwcFZlcnNpb24iOiIxLjAwMDM5MCIsInVzZXJJZCI6Ii0xIiwiaWF0IjoxNzc1NDE0MjY1LCJleHAiOjE3ODMxOTAyNjUsImlzcyI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSIsImF1ZCI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSJ9"
-    ".DFiFajLPbnFY3aKuUw0Utqjis2oi4FWrNLco6oDExcY"
+    ".eyJhcHBJZCI6IjA0ZWQzMjI1LThiZGYtNDkzYS1iODRiLTRmY2RlNDU4ZWUwNyIsImFwcFZlcnNpb24iOiIxLjAwMDQyOSIsInVzZXJJZCI6Ii0xIiwiaWF0IjoxNzc1NTA3MTA5LCJleHAiOjE3ODMyODMxMDksImlzcyI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSIsImF1ZCI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSJ9"
+    ".9Z3XiDHVAdv5lpuG8FwlB8WyWu_W2iOAFkC5slNHRns"
 )
 
-# Copy the full row array from the HAR for the POI you want to change.
-# Only [4] (owner) will be overwritten by change_owner().
-ROW = [
-    "27",                           # [0]  internal row number
-    "JjCK-VggXC4yi_GmQns_81",      # [1]  unique row key
-    "",                     # [2]  POI name
-    "51.101310, 5.149437",          # [3]  coordinates
-    "Chiro Genebos",                # [4]  current owner  ← will be overwritten
-    "Ham",                          # [5]  municipality
-    "38",                           # [6]  score / numeric field
-    "🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜",          # [7]  emoji progress bar
-    "Aftand tot locatie: 0.034 km", # [8]  distance string
-    "",                             # [9]
-    "",                             # [10]
-    "aLMBr9-Ya-4Eeo0HeVzkz5 , uuAZS83JSsd6GsfzBHHuLQ",  # [11] capture keys
-    "Nog -44:38:23 tot het spel begint!",                 # [12] status string
-]
-
-NEW_OWNER = "Chiro Oostham"
-
-# ── FIXED (don't change these) ────────────────────────────────────────────────
+# ── FIXED ─────────────────────────────────────────────────────────────────────
 
 APP_ID      = "04ed3225-8bdf-493a-b84b-4fcde458ee07"
-APP_VERSION = "1.000390"
-CLIENT_ID   = "1d5acc58-0eb2-40e8-8a23-5d8328758830"
-BUILD       = "aaaaaaaaaaaaaaaaaaaa-1775105475616-34910e9b"
+APP_VERSION = "1.000429"
+CLIENT_ID   = "2fdccef5-01f6-4877-b7d4-5e6f58696259"
+BUILD       = "aaaaaaaaaaaaaaaaaaaa-1775242405640-9e8e0270"
 
-# ── SEND ──────────────────────────────────────────────────────────────────────
+# ── HELPERS ───────────────────────────────────────────────────────────────────
 
-def change_owner(row: list, new_owner: str = NEW_OWNER):
-    row = list(row)
-    row[4] = new_owner          # column 4 = Team / owner
+def ts(offset_ms=0):
+    t = datetime.now(timezone.utc) + timedelta(milliseconds=offset_ms)
+    return t.strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
 
-    def ts(offset_ms=0):
-        from datetime import timedelta
-        t = datetime.now(timezone.utc) + timedelta(milliseconds=offset_ms)
-        return t.strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
+
+def load_image_as_data_uri(path):
+    """Read an image file and return it as a base64 data URI."""
+    data = Path(path).read_bytes()
+    ext  = Path(path).suffix.lower().lstrip(".")
+    mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+            "png": "image/png",  "gif": "image/gif",
+            "webp": "image/webp"}.get(ext, "image/jpeg")
+    return f"data:{mime};base64,{base64.b64encode(data).decode()}"
+
+
+def resolve_image(row, custom_image_uri):
+    """
+    Return the image value for column [13]:
+      1. custom_image_uri if supplied (base64 data URI of a new photo)
+      2. existing URL already in the row (last server-side capture photo)
+      3. empty string if the row has no image
+    """
+    if custom_image_uri:
+        return custom_image_uri
+    return row[13] if len(row) > 13 else ""
+
+
+def change_owner(row, new_owner, image_uri=None, dry_run=False):
+    row    = list(row)
+    row[4] = new_owner
+    row[13] = resolve_image(row, image_uri)
 
     settings = {
         "_RowNumber": "0", "_EMAIL": "guest", "_NAME": "Guest",
@@ -69,74 +85,87 @@ def change_owner(row: list, new_owner: str = NEW_OWNER):
         "_THISUSER": "onlyvalue",
     }
 
-    import random
-    resp = requests.post(
+    params = {
+        "tzOffset":           "-120",
+        "settings":           json.dumps(settings),
+        "apiLevel":           "2",
+        "isPreview":          "false",
+        "checkCache":         "false",
+        "locale":             "en-US",
+        "location":           "null, null",
+        "appTemplateVersion": APP_VERSION,
+        "localVersion":       APP_VERSION,
+        "timestamp":          ts(0),
+        "requestStartTime":   ts(3),
+        "lastSyncTime":       ts(-30000),
+        "appStartTime":       ts(-60000),
+        "dataStamp":          ts(0),
+        "clientId":           CLIENT_ID,
+        "build":              BUILD,
+        "requestId":          str(random.randint(1_000_000, 99_999_999)),
+        "syncToken":          SYNC_TOKEN,
+    }
+
+    headers = {
+        "Content-Type":     "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "Origin":           "https://www.appsheet.com",
+        "Referer":          f"https://www.appsheet.com/start/{APP_ID}",
+    }
+
+    body = {"row": row, "pii": [False] * len(row)}
+
+    img_label = "new image" if image_uri else ("existing image" if row[13] else "no image")
+    print(f"  [{row[0]:>3}] {row[2]:<40} owner→{new_owner}  ({img_label})")
+
+    if dry_run:
+        return None
+
+    resp   = requests.post(
         f"https://www.appsheet.com/api/template/{APP_ID}/table/Locations/row/update",
-        params={
-            "tzOffset": "-120",
-            "settings": json.dumps(settings),
-            "apiLevel": "2",
-            "isPreview": "false",
-            "checkCache": "false",          # was "true" — caused cached no-op
-            "locale": "en-US",
-            "location": "null, null",
-            "appTemplateVersion": APP_VERSION,
-            "localVersion": APP_VERSION,
-            "timestamp": ts(0),
-            "requestStartTime": ts(3),      # slightly after timestamp, like the browser
-            "lastSyncTime": ts(-30000),     # ~30s ago, like a real sync interval
-            "appStartTime": ts(-60000),
-            "dataStamp": ts(0),
-            "clientId": CLIENT_ID,
-            "build": BUILD,
-            "requestId": str(random.randint(1_000_000, 99_999_999)),  # unique each call
-            "syncToken": SYNC_TOKEN,
-        },
-        headers={
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-            "Origin": "https://www.appsheet.com",
-            "Referer": f"https://www.appsheet.com/start/{APP_ID}",
-        },
-        json={"row": row, "pii": [False] * len(row)},
-        timeout=30,
+        params=params, headers=headers, json=body, timeout=30,
     )
-
-    print(f"Status: {resp.status_code}")
-    try:
-        print(json.dumps(resp.json(), indent=2))
-    except Exception:
-        print(resp.text)
-    return resp
+    result = resp.json()
+    ok     = result.get("Success") and not result.get("ReturnedFromCache")
+    status = "OK" if ok else f"WARN cache={result.get('ReturnedFromCache')} success={result.get('Success')}"
+    print(f"       → {resp.status_code} {status}")
+    return result
 
 
-def load_rows_from_file(file_path: Path) -> list:
-    try:
-        with file_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        print(f"rows file not found: {file_path}")
-        return []
-    except json.JSONDecodeError as exc:
-        print(f"rows file is not valid JSON: {exc}")
-        return []
-
-    if not isinstance(data, list):
-        print("rows file must contain a top-level list")
-        return []
-
-    return data
-
+# ── MAIN ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    rows_path = Path(__file__).with_name("")
+    dry_run   = "--dry-run" in sys.argv
+    image_uri = None
 
-    while True:
-        if False: #TODO NEVER EVER CHANGE TO TRUE!!!!!!!!!
-            rows = load_rows_from_file(rows_path)
-            for index, row in enumerate(rows):
-                if not isinstance(row, list) or len(row) < 5:
-                    print(f"Skipping invalid row at index {index}")
-                    continue
-                change_owner(row, NEW_OWNER)
-        sleep(10)
+    if "--image" in sys.argv:
+        idx = sys.argv.index("--image")
+        try:
+            image_path = sys.argv[idx + 1]
+            image_uri  = load_image_as_data_uri(image_path)
+            print(f"Custom image loaded: {image_path} ({len(image_uri) // 1024} KB as data URI)")
+        except (IndexError, FileNotFoundError) as e:
+            print(f"Error loading image: {e}")
+            sys.exit(1)
+
+    with open(ROWS_FILE, encoding="utf-8") as f:
+        rows = json.load(f)
+
+    print(f"{'[DRY RUN] ' if dry_run else ''}Updating {len(rows)} POIs -> '{NEW_OWNER}'")
+    print("-" * 60)
+
+    ok_count   = 0
+    fail_count = 0
+
+    for row in rows:
+        result = change_owner(row, NEW_OWNER, image_uri=image_uri, dry_run=dry_run)
+        if result is not None:
+            if result.get("Success") and not result.get("ReturnedFromCache"):
+                ok_count += 1
+            else:
+                fail_count += 1
+            time.sleep(0.3)  # be gentle with the server
+
+    if not dry_run:
+        print("-" * 60)
+        print(f"Done. {ok_count} succeeded, {fail_count} failed.")

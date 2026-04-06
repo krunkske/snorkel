@@ -9,14 +9,14 @@ from datetime import datetime, timezone
 
 SYNC_TOKEN = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-    ".eyJhcHBJZCI6IjA0ZWQzMjI1LThiZGYtNDkzYS1iODRiLTRmY2RlNDU4ZWUwNyIsImFwcFZlcnNpb24iOiIxLjAwMDM5NiIsInVzZXJJZCI6Ii0xIiwiaWF0IjoxNzc1NDE3MjExLCJleHAiOjE3ODMxOTMyMTEsImlzcyI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSIsImF1ZCI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSJ9"
-    ".fiwz8g5ip76lkTia-TsIQGYAuCg80VaL4y2eqkaGLuM"
+    ".eyJhcHBJZCI6IjA0ZWQzMjI1LThiZGYtNDkzYS1iODRiLTRmY2RlNDU4ZWUwNyIsImFwcFZlcnNpb24iOiIxLjAwMDQyOSIsInVzZXJJZCI6Ii0xIiwiaWF0IjoxNzc1NTA3MTA5LCJleHAiOjE3ODMyODMxMDksImlzcyI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSIsImF1ZCI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSJ9"
+    ".9Z3XiDHVAdv5lpuG8FwlB8WyWu_W2iOAFkC5slNHRns"
 )
 
 APP_ID      = "04ed3225-8bdf-493a-b84b-4fcde458ee07"
-APP_VERSION = "1.000396"
-CLIENT_ID   = "5c8dc061-654f-4863-b3e9-dcf4b938b47b"
-BUILD       = "aaaaaaaaaaaaaaaaaaaa-1775105475616-34910e9b"
+APP_VERSION = "1.000429"
+CLIENT_ID   = "2fdccef5-01f6-4877-b7d4-5e6f58696259"
+BUILD       = "aaaaaaaaaaaaaaaaaaaa-1775242405640-9e8e0270"
 
 def fetch_database():
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
@@ -87,6 +87,14 @@ def fetch_database():
     with open("db_dump.json", "w") as f:
         json.dump(data, f, indent=2)
     print("\nFull dump saved to db_dump.json")
+
+    # Save Locations rows to rows.json
+    for ds in data["NestedDataSets"]:
+        if ds["Name"] == "Locations":
+            rows = json.loads(ds["DataSet"])["data"]
+            with open("rows.json", "w", encoding="utf-8") as f:
+                json.dump(rows, f, indent=2, ensure_ascii=False)
+            print(f"rows.json saved ({len(rows)} POIs)")
 
 if __name__ == "__main__":
     fetch_database()
