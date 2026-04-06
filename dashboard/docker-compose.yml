@@ -1,0 +1,21 @@
+services:
+  poi-claimer:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount your data folder — put rows.json and images/ here
+      - ./data:/data
+    environment:
+      # ── AppSheet credentials ───────────────────────────────
+      SYNC_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHBJZCI6IjA0ZWQzMjI1LThiZGYtNDkzYS1iODRiLTRmY2RlNDU4ZWUwNyIsImFwcFZlcnNpb24iOiIxLjAwMDQyOSIsInVzZXJJZCI6Ii0xIiwiaWF0IjoxNzc1NTA3MTA5LCJleHAiOjE3ODMyODMxMDksImlzcyI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSIsImF1ZCI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSJ9.9Z3XiDHVAdv5lpuG8FwlB8WyWu_W2iOAFkC5slNHRns"
+      APP_ID:      "04ed3225-8bdf-493a-b84b-4fcde458ee07"
+      APP_VERSION: "1.000429"
+      CLIENT_ID:   "2fdccef5-01f6-4877-b7d4-5e6f58696259"
+      BUILD:       "aaaaaaaaaaaaaaaaaaaa-1775242405640-9e8e0270"
+      # ── Game settings ──────────────────────────────────────
+      NEW_OWNER:               "Chiro Oostham"
+      CLAIM_INTERVAL_MINUTES:  "15"
+      DELAY_MIN:               "2"    # min seconds between POI updates
+      DELAY_MAX:               "8"    # max seconds between POI updates
+    restart: unless-stopped
