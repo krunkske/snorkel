@@ -2,563 +2,668 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POI Claimer — {{ new_owner }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>POI Claimer</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap');
 
-  :root {
-    --bg:       #0b0d11;
-    --surface:  #13161d;
-    --border:   #1f2430;
-    --accent:   #00e5a0;
-    --accent2:  #005f42;
-    --warn:     #f59e0b;
-    --danger:   #ef4444;
-    --text:     #e2e8f0;
-    --muted:    #64748b;
-    --ok:       #00e5a0;
-    --radius:   6px;
-  }
+:root {
+  --bg:      #0c0e14;
+  --surf:    #13161e;
+  --surf2:   #1a1e29;
+  --border:  #232838;
+  --accent:  #00e5a0;
+  --night:   #818cf8;
+  --day:     #fbbf24;
+  --danger:  #f87171;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --ok:      #00e5a0;
+  --warn:    #fbbf24;
+  --r:       6px;
+}
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    min-height: 100vh;
-    display: grid;
-    grid-template-rows: auto 1fr;
-  }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
 
-  /* ── HEADER ── */
-  header {
-    border-bottom: 1px solid var(--border);
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    background: var(--surface);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  header h1 {
-    font-family: 'Syne', sans-serif;
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--accent);
-    letter-spacing: -0.5px;
-    white-space: nowrap;
-  }
-  .status-bar {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    flex: 1;
-    flex-wrap: wrap;
-  }
-  .stat {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
-  .stat-value { font-size: 13px; font-weight: 600; color: var(--text); }
-  .stat-value.accent { color: var(--accent); }
+/* ── HEADER ── */
+header {
+  background: var(--surf);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+header h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.hstats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1;
+}
+.hstat { display: flex; flex-direction: column; gap: 1px; }
+.hstat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.hstat-value { font-size: 12px; font-weight: 600; }
+.hstat-value.night { color: var(--night); }
+.hstat-value.day   { color: var(--day);   }
+.hstat-value.ok    { color: var(--ok);    }
 
-  .btn {
-    padding: 7px 16px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .btn:hover  { border-color: var(--accent); color: var(--accent); }
-  .btn:active { transform: scale(0.97); }
-  .btn.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #000;
-    font-weight: 700;
-  }
-  .btn.primary:hover { background: #00ffb3; border-color: #00ffb3; color: #000; }
-  .btn.danger { border-color: var(--danger); color: var(--danger); }
-  .btn.danger:hover { background: var(--danger); color: #fff; }
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid;
+}
+.mode-badge.night { color: var(--night); border-color: var(--night); background: rgba(129,140,248,.08); }
+.mode-badge.day   { color: var(--day);   border-color: var(--day);   background: rgba(251,191,36,.08);  }
 
-  /* ── LAYOUT ── */
-  .layout {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    grid-template-rows: 1fr;
-    height: calc(100vh - 57px);
-    overflow: hidden;
-  }
+.btn {
+  padding: 7px 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn:hover  { border-color: var(--accent); color: var(--accent); }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+.btn.primary:hover { background: #00ffb3; }
+.btn:disabled { opacity: .4; pointer-events: none; }
 
-  /* ── LEFT: POI GRID ── */
-  .poi-panel {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-right: 1px solid var(--border);
-  }
-  .poi-toolbar {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    background: var(--surface);
-  }
-  .poi-toolbar input[type="text"] {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 6px 12px;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    flex: 1;
-    min-width: 140px;
-  }
-  .poi-toolbar input[type="text"]::placeholder { color: var(--muted); }
-  .poi-toolbar input[type="text"]:focus { outline: 1px solid var(--accent); }
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf);
+  padding: 0 16px;
+  gap: 0;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
 
-  .sel-count {
-    margin-left: auto;
-    font-size: 11px;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-  .sel-count span { color: var(--accent); font-weight: 700; }
+/* ── UPLOAD BAR ── */
+.upload-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf);
+}
+.upload-bar select,
+.upload-bar input[type="file"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 6px 8px;
+}
+.upload-bar select {
+  min-width: 200px;
+  max-width: 360px;
+}
+.upload-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+.upload-status.ok { color: var(--ok); }
+.upload-status.err { color: var(--danger); }
+.tab {
+  padding: 10px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all .15s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active-night { color: var(--night); border-bottom-color: var(--night); }
+.tab.active-day   { color: var(--day);   border-bottom-color: var(--day);   }
+.tab.active-log   { color: var(--accent); border-bottom-color: var(--accent); }
+.tab .cnt {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  background: var(--surf2);
+}
+.tab.active-night .cnt { background: rgba(129,140,248,.2); color: var(--night); }
+.tab.active-day   .cnt { background: rgba(251,191,36,.2);  color: var(--day);   }
 
-  .poi-grid {
-    overflow-y: auto;
-    padding: 12px 16px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 8px;
-    align-content: start;
-  }
+/* ── PANELS ── */
+.panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.panel.active { display: flex; }
 
-  .poi-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    user-select: none;
-    position: relative;
-  }
-  .poi-card:hover { border-color: var(--muted); background: rgba(255,255,255,0.02); }
-  .poi-card.selected {
-    border-color: var(--accent);
-    background: rgba(0, 229, 160, 0.06);
-  }
-  .poi-card.selected::before {
-    content: '✓';
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    font-size: 11px;
-    color: var(--accent);
-    font-weight: 700;
-  }
+/* ── POI TOOLBAR ── */
+.toolbar {
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf);
+  flex-shrink: 0;
+}
+.toolbar input {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 6px 10px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.toolbar input:focus { outline: 1px solid var(--accent); }
+.toolbar input::placeholder { color: var(--muted); }
+.sel-info { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.sel-info b { font-weight: 700; }
 
-  .poi-name {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-    line-height: 1.3;
-    padding-right: 16px;
-    margin-bottom: 4px;
-  }
-  .poi-owner {
-    font-size: 10px;
-    color: var(--muted);
-    margin-bottom: 3px;
-  }
-  .poi-owner.ours { color: var(--accent); }
-  .poi-gemeente {
-    font-size: 10px;
-    color: var(--muted);
-  }
-  .poi-bar {
-    font-size: 10px;
-    margin-top: 4px;
-    letter-spacing: -1px;
-  }
+/* ── POI GRID ── */
+.poi-grid {
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 7px;
+  align-content: start;
+  flex: 1;
+}
 
-  /* ── RIGHT: LOG PANEL ── */
-  .log-panel {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--surface);
-  }
-  .log-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .log-header h2 {
-    font-family: 'Syne', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .log-entries {
-    overflow-y: auto;
-    flex: 1;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .log-entry {
-    border-radius: var(--radius);
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    font-size: 11px;
-    line-height: 1.5;
-    animation: fadeIn 0.3s ease;
-  }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-  .log-entry.ok     { border-color: var(--accent2); background: rgba(0,229,160,0.04); }
-  .log-entry.warn   { border-color: #78350f;        background: rgba(245,158,11,0.04); }
-  .log-entry.error  { border-color: #7f1d1d;        background: rgba(239,68,68,0.04); }
+/* ── POI CARD ── */
+.poi-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 9px 11px;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+  user-select: none;
+  position: relative;
+  background: var(--surf);
+}
+.poi-card:hover { border-color: var(--muted); }
+.poi-card .poi-name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  padding-right: 18px;
+}
+.poi-card .poi-gem {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.poi-card .check {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  display: none;
+}
+/* Night selected */
+.poi-card.sel-night {
+  border-color: var(--night);
+  background: rgba(129,140,248,.07);
+}
+.poi-card.sel-night .check { display: block; color: var(--night); }
+/* Day selected */
+.poi-card.sel-day {
+  border-color: var(--day);
+  background: rgba(251,191,36,.07);
+}
+.poi-card.sel-day .check { display: block; color: var(--day); }
+/* Both selected */
+.poi-card.sel-both {
+  border-color: var(--accent);
+  background: rgba(0,229,160,.07);
+}
+.poi-card.sel-both .check { display: block; color: var(--accent); }
 
-  .log-entry-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2px;
-  }
-  .log-poi   { font-weight: 600; color: var(--text); }
-  .log-ts    { font-size: 10px; color: var(--muted); }
-  .log-detail { color: var(--muted); font-size: 10px; }
-  .log-detail .ok-text    { color: var(--ok); }
-  .log-detail .warn-text  { color: var(--warn); }
-  .log-detail .error-text { color: var(--danger); }
+/* ── LOG PANEL ── */
+.log-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.log-entry {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 7px 10px;
+  font-size: 11px;
+  animation: fadeIn .25s ease;
+}
+@keyframes fadeIn { from { opacity:0; transform:translateY(-3px); } to { opacity:1; } }
+.log-entry.ok   { border-color: #0f3d2a; background: rgba(0,229,160,.04); }
+.log-entry.warn { border-color: #4a3000; background: rgba(251,191,36,.04); }
+.log-entry.error{ border-color: #4a1010; background: rgba(248,113,113,.04); }
+.log-entry.info { border-color: var(--border); background: var(--surf2); }
+.log-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.log-poi  { font-weight: 600; color: var(--text); }
+.log-ts   { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.log-det  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.c-ok    { color: var(--ok); }
+.c-warn  { color: var(--warn); }
+.c-err   { color: var(--danger); }
+.log-mode{ font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+.log-mode.night { background: rgba(129,140,248,.15); color: var(--night); }
+.log-mode.day   { background: rgba(251,191,36,.15);  color: var(--day);   }
 
-  .empty-log {
-    color: var(--muted);
-    font-size: 11px;
-    text-align: center;
-    margin-top: 40px;
-  }
+.empty-msg { color: var(--muted); text-align: center; margin-top: 40px; font-size: 12px; line-height: 1.8; }
 
-  /* ── COUNTDOWN ── */
-  #countdown {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-  }
+/* ── COUNTDOWN ── */
+#countdown { font-variant-numeric: tabular-nums; }
 
-  /* ── SCROLLBAR ── */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-  /* ── PULSE DOT ── */
-  .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
-  .pulse.inactive { background: var(--muted); animation: none; }
+/* ── MOBILE ── */
+@media (max-width: 500px) {
+  header h1 { font-size: 14px; }
+  .hstats   { gap: 10px; }
+  .poi-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .tab      { padding: 10px 12px; font-size: 11px; }
+}
 </style>
 </head>
 <body>
 
+<!-- HEADER -->
 <header>
   <h1>◈ POI CLAIMER</h1>
-  <div class="status-bar">
-    <div class="stat">
-      <span class="stat-label">Target</span>
-      <span class="stat-value accent" id="stat-owner">{{ new_owner }}</span>
+  <div class="hstats">
+    <div class="hstat">
+      <span class="hstat-label">Mode</span>
+      <span class="hstat-value" id="h-mode">—</span>
     </div>
-    <div class="stat">
-      <span class="stat-label">Next claim</span>
-      <span class="stat-value" id="countdown">--:--</span>
+    <div class="hstat">
+      <span class="hstat-label">Next cycle</span>
+      <span class="hstat-value ok" id="countdown">--:--</span>
     </div>
-    <div class="stat">
-      <span class="stat-label">Server time</span>
-      <span class="stat-value" id="stat-time">--:--:--</span>
+    <div class="hstat">
+      <span class="hstat-label">Night sel.</span>
+      <span class="hstat-value night" id="h-night">0</span>
     </div>
-    <div class="stat">
-      <span class="stat-label">Image mode</span>
-      <span class="stat-value" id="stat-daytime">--</span>
+    <div class="hstat">
+      <span class="hstat-label">Day sel.</span>
+      <span class="hstat-value day" id="h-day">0</span>
     </div>
-    <div class="stat">
-      <span class="stat-label">Status</span>
-      <span class="stat-value"><span class="pulse inactive" id="pulse-dot"></span> <span id="stat-status">idle</span></span>
+    <div class="hstat">
+      <span class="hstat-label">Time</span>
+      <span class="hstat-value" id="h-time">—</span>
     </div>
   </div>
-  <button class="btn primary" onclick="claimNow()" id="claim-btn">▶ Claim now</button>
+  <button class="btn primary" id="claim-btn" onclick="claimNow()">▶ Now</button>
 </header>
 
-<div class="layout">
-  <!-- POI LIST -->
-  <div class="poi-panel">
-    <div class="poi-toolbar">
-      <input type="text" id="search" placeholder="Search POIs..." oninput="filterPOIs()">
-      <button class="btn" onclick="selectFiltered(true)">Select all</button>
-      <button class="btn danger" onclick="selectFiltered(false)">Deselect all</button>
-      <span class="sel-count"><span id="sel-num">0</span> / {{ pois|length }} selected</span>
-    </div>
-    <div class="poi-grid" id="poi-grid">
-      {% for poi in pois %}
-      <div class="poi-card"
-           data-key="{{ poi[1] }}"
-           data-name="{{ poi[2]|lower }}"
-           data-gemeente="{{ poi[5]|lower }}"
-           data-owner="{{ poi[4] }}"
-           onclick="togglePOI(this)">
-        <div class="poi-name">{{ poi[2] }}</div>
-        <div class="poi-owner {% if poi[4] == new_owner %}ours{% endif %}">{{ poi[4] }}</div>
-        <div class="poi-gemeente">{{ poi[5] }}</div>
-        <div class="poi-bar">{{ poi[7] }}</div>
-      </div>
-      {% endfor %}
-    </div>
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active-night" id="tab-night" onclick="switchTab('night')">
+    🌙 Night <span class="cnt" id="tab-night-cnt">0</span>
   </div>
+  <div class="tab" id="tab-day" onclick="switchTab('day')">
+    ☀ Day <span class="cnt" id="tab-day-cnt">0</span>
+  </div>
+  <div class="tab" id="tab-log" onclick="switchTab('log')">
+    Log <span class="cnt" id="tab-log-cnt">0</span>
+  </div>
+</div>
 
-  <!-- LOG PANEL -->
-  <div class="log-panel">
-    <div class="log-header">
-      <h2>Activity log</h2>
-      <button class="btn" onclick="clearLog()" style="font-size:10px;padding:4px 10px;">Clear</button>
+<!-- UPLOAD -->
+<div class="upload-bar">
+  <span style="font-size:11px;color:var(--muted)">Upload image:</span>
+  <select id="upload-poi-key" aria-label="POI">
+    {% for poi in pois %}
+    <option value="{{ poi[1] }}">{{ poi[2] }}</option>
+    {% endfor %}
+  </select>
+  <select id="upload-mode" aria-label="Image mode">
+    <option value="day">Day</option>
+    <option value="night">Night</option>
+  </select>
+  <input type="file" id="upload-file" aria-label="Image file" accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
+  <button class="btn" id="upload-btn" onclick="uploadImage()">Upload</button>
+  <span class="upload-status" id="upload-status">Idle</span>
+</div>
+
+<!-- NIGHT PANEL -->
+<div class="panel active" id="panel-night">
+  <div class="toolbar">
+    <input type="text" id="search-night" placeholder="Search…" oninput="filterGrid('night')">
+    <button class="btn" onclick="selectFiltered('night', true)">All</button>
+    <button class="btn" onclick="selectFiltered('night', false)">None</button>
+    <span class="sel-info"><b id="night-count">0</b> / {{ pois|length }}</span>
+  </div>
+  <div class="poi-grid" id="grid-night">
+    {% for poi in pois %}
+    <div class="poi-card"
+         data-key="{{ poi[1] }}"
+         data-name="{{ poi[2]|lower }}"
+         data-gem="{{ poi[5]|lower }}"
+         onclick="toggleCard(this, 'night')">
+      <span class="check">✓</span>
+      <div class="poi-name">{{ poi[2] }}</div>
+      <div class="poi-gem">{{ poi[5] }}</div>
     </div>
-    <div class="log-entries" id="log-entries">
-      <p class="empty-log">No activity yet.<br>Select POIs and click "Claim now".</p>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- DAY PANEL -->
+<div class="panel" id="panel-day">
+  <div class="toolbar">
+    <input type="text" id="search-day" placeholder="Search…" oninput="filterGrid('day')">
+    <button class="btn" onclick="selectFiltered('day', true)">All</button>
+    <button class="btn" onclick="selectFiltered('day', false)">None</button>
+    <span class="sel-info"><b id="day-count">0</b> / {{ pois|length }}</span>
+  </div>
+  <div class="poi-grid" id="grid-day">
+    {% for poi in pois %}
+    <div class="poi-card"
+         data-key="{{ poi[1] }}"
+         data-name="{{ poi[2]|lower }}"
+         data-gem="{{ poi[5]|lower }}"
+         onclick="toggleCard(this, 'day')">
+      <span class="check">✓</span>
+      <div class="poi-name">{{ poi[2] }}</div>
+      <div class="poi-gem">{{ poi[5] }}</div>
     </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- LOG PANEL -->
+<div class="panel" id="panel-log">
+  <div class="toolbar">
+    <span style="color:var(--muted);font-size:11px;">Activity log — updates every 3s</span>
+    <button class="btn" style="margin-left:auto" onclick="clearLog()">Clear</button>
+  </div>
+  <div class="log-list" id="log-list">
+    <p class="empty-msg">No activity yet.<br>Select POIs and trigger a cycle.</p>
   </div>
 </div>
 
 <script>
-  const NEW_OWNER  = {{ new_owner|tojson }};
-  const INTERVAL_S = {{ interval }} * 60;
+  // ── STATE ──────────────────────────────────────────────────────────────────
+  const nightSel = new Set();
+  const daySel   = new Set();
+  let currentTab = 'night';
+  let nextCycleAt = null;
+  let lastLogCount = 0;
 
-  let selectedKeys  = new Set();
-  let nextClaimAt   = null;
-  let countdownTimer = null;
-  let logPollTimer   = null;
-  let running        = false;
-
-  // ── POI SELECTION ──────────────────────────────────────────────────────────
-
-  function togglePOI(card) {
-    const key = card.dataset.key;
-    const sel = !card.classList.contains('selected');
-    card.classList.toggle('selected', sel);
-    sel ? selectedKeys.add(key) : selectedKeys.delete(key);
-    updateSelCount();
-    syncSelection(key, sel);
-  }
-
-  function syncSelection(key, sel) {
-    fetch('/api/select', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({key, selected: sel})
+  // ── TABS ───────────────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    currentTab = tab;
+    ['night','day','log'].forEach(t => {
+      document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+      const el = document.getElementById('tab-' + t);
+      el.className = 'tab';
+      if (t === tab) el.classList.add('active-' + (t === 'log' ? 'log' : t));
     });
   }
 
-  function selectFiltered(sel) {
-    const visible = [...document.querySelectorAll('.poi-card')]
-      .filter(c => c.style.display !== 'none');
+  // ── CARD TOGGLE ────────────────────────────────────────────────────────────
+  function toggleCard(card, mode) {
+    const key = card.dataset.key;
+    const set  = mode === 'night' ? nightSel : daySel;
+    const sel  = !isSelected(card, mode);
+    sel ? set.add(key) : set.delete(key);
+    updateCardClasses(card);
+    updateCounts();
+    fetch('/api/select', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({key, mode, selected: sel})
+    });
+  }
+
+  function isSelected(card, mode) {
+    const key = card.dataset.key;
+    return mode === 'night' ? nightSel.has(key) : daySel.has(key);
+  }
+
+  function updateCardClasses(card) {
+    const key = card.dataset.key;
+    const n = nightSel.has(key);
+    const d = daySel.has(key);
+    card.classList.remove('sel-night','sel-day','sel-both');
+    if (n && d) card.classList.add('sel-both');
+    else if (n) card.classList.add('sel-night');
+    else if (d) card.classList.add('sel-day');
+  }
+
+  function updateCounts() {
+    document.getElementById('night-count').textContent = nightSel.size;
+    document.getElementById('day-count').textContent   = daySel.size;
+    document.getElementById('tab-night-cnt').textContent = nightSel.size;
+    document.getElementById('tab-day-cnt').textContent   = daySel.size;
+    document.getElementById('h-night').textContent = nightSel.size;
+    document.getElementById('h-day').textContent   = daySel.size;
+  }
+
+  // ── SELECT ALL (filtered) ──────────────────────────────────────────────────
+  function selectFiltered(mode, sel) {
+    const grid = document.getElementById('grid-' + mode);
+    const set  = mode === 'night' ? nightSel : daySel;
+    const visible = [...grid.querySelectorAll('.poi-card')].filter(c => c.style.display !== 'none');
     const keys = visible.map(c => c.dataset.key);
 
     visible.forEach(c => {
-      c.classList.toggle('selected', sel);
-      sel ? selectedKeys.add(c.dataset.key) : selectedKeys.delete(c.dataset.key);
+      sel ? set.add(c.dataset.key) : set.delete(c.dataset.key);
+      updateCardClasses(c);
+      // Also sync the other grid's card appearance
+      const other = document.querySelector(`#grid-${mode === 'night' ? 'day' : 'night'} [data-key="${c.dataset.key}"]`);
+      if (other) updateCardClasses(other);
     });
-    updateSelCount();
-
+    updateCounts();
     fetch('/api/select_all', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({keys, selected: sel})
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({keys, mode, selected: sel})
     });
-  }
-
-  function updateSelCount() {
-    document.getElementById('sel-num').textContent = selectedKeys.size;
   }
 
   // ── SEARCH / FILTER ────────────────────────────────────────────────────────
-
-  function filterPOIs() {
-    const q = document.getElementById('search').value.toLowerCase().trim();
-    document.querySelectorAll('.poi-card').forEach(c => {
-      const match = !q || c.dataset.name.includes(q) || c.dataset.gemeente.includes(q);
+  function filterGrid(mode) {
+    const q = document.getElementById('search-' + mode).value.toLowerCase().trim();
+    document.querySelectorAll(`#grid-${mode} .poi-card`).forEach(c => {
+      const match = !q || c.dataset.name.includes(q) || c.dataset.gem.includes(q);
       c.style.display = match ? '' : 'none';
     });
   }
 
   // ── CLAIM NOW ──────────────────────────────────────────────────────────────
-
-  async function claimNow() {
-    if (selectedKeys.size === 0) {
-      alert('Select at least one POI first.');
-      return;
-    }
-    setRunning(true);
-    appendLog({poi: '— Claim cycle started —', ts: now(), status: 'ok', detail: `${selectedKeys.size} POIs queued`});
-    await fetch('/api/claim_now', {method: 'POST'});
-    // Reset countdown
-    nextClaimAt = Date.now() + INTERVAL_S * 1000;
-  }
-
-  // ── STATUS POLLING ─────────────────────────────────────────────────────────
-
-  async function pollStatus() {
-    try {
-      const r = await fetch('/api/status');
-      const d = await r.json();
-      document.getElementById('stat-time').textContent    = d.server_time;
-      document.getElementById('stat-daytime').textContent = d.daytime ? '☀ day' : '🌙 night';
-    } catch {}
-  }
-
-  async function pollLog() {
-    try {
-      const r = await fetch('/api/log');
-      const d = await r.json();
-      renderLog(d.log);
-    } catch {}
-  }
-
-  function renderLog(entries) {
-    const el = document.getElementById('log-entries');
-    if (!entries.length) {
-      el.innerHTML = '<p class="empty-log">No activity yet.<br>Select POIs and click "Claim now".</p>';
-      setRunning(false);
-      return;
-    }
-    el.innerHTML = entries.map(e => {
-      const statusClass = e.status;
-      const detail = e.status === 'ok'
-        ? `<span class="ok-text">✓ claimed</span> · img: ${e.img_source} · http ${e.http}`
-        : e.status === 'warn'
-        ? `<span class="warn-text">⚠ cached/warn</span> · http ${e.http}`
-        : `<span class="error-text">✗ error: ${e.error || e.http}</span>`;
-      return `
-        <div class="log-entry ${statusClass}">
-          <div class="log-entry-head">
-            <span class="log-poi">${e.poi}</span>
-            <span class="log-ts">${e.ts}</span>
-          </div>
-          <div class="log-detail">${detail}</div>
-        </div>`;
-    }).join('');
-
-    // Check if still running (last entry is the cycle marker or a recent entry)
-    const latest = entries[0];
-    const recentMs = 30 * 1000;
-    const isRecent = latest && latest.ts; // could parse ts but just keep running until next poll shows quiet
-    setRunning(false); // caller sets it; just let the button re-enable after cycle
-  }
-
-  function appendLog(entry) {
-    // Optimistic local append before server poll
-    const el = document.getElementById('log-entries');
-    if (el.querySelector('.empty-log')) el.innerHTML = '';
-    const div = document.createElement('div');
-    div.className = `log-entry ${entry.status}`;
-    div.innerHTML = `
-      <div class="log-entry-head">
-        <span class="log-poi">${entry.poi}</span>
-        <span class="log-ts">${entry.ts}</span>
-      </div>
-      <div class="log-detail">${entry.detail || ''}</div>`;
-    el.prepend(div);
-  }
-
-  function setRunning(on) {
-    running = on;
-    document.getElementById('pulse-dot').classList.toggle('inactive', !on);
-    document.getElementById('stat-status').textContent = on ? 'running' : 'idle';
-    document.getElementById('claim-btn').disabled = on;
-  }
-
-  // ── COUNTDOWN ──────────────────────────────────────────────────────────────
-
-  function tickCountdown() {
-    if (!nextClaimAt) {
-      // Compute from server interval
-      fetch('/api/status').then(r => r.json()).then(d => {
-        // next_run is HH:MM:SS today — parse it
-        const parts = d.next_run.split(':').map(Number);
-        if (parts.length === 3) {
-          const now = new Date();
-          const next = new Date();
-          next.setHours(parts[0], parts[1], parts[2], 0);
-          if (next <= now) next.setDate(next.getDate() + 1);
-          nextClaimAt = next.getTime();
-        }
-      }).catch(() => {});
-    }
-
-    if (nextClaimAt) {
-      const diff = Math.max(0, nextClaimAt - Date.now());
-      const m    = Math.floor(diff / 60000);
-      const s    = Math.floor((diff % 60000) / 1000);
-      document.getElementById('countdown').textContent =
-        `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-
-      if (diff === 0) {
-        nextClaimAt = Date.now() + INTERVAL_S * 1000;
-        setRunning(true);
-        appendLog({poi: '— Scheduled claim started —', ts: now(), status: 'ok', detail: `${selectedKeys.size} POIs queued`});
-      }
-    }
-  }
-
-  function now() {
-    return new Date().toTimeString().slice(0,8);
+  function claimNow() {
+    document.getElementById('claim-btn').disabled = true;
+    fetch('/api/claim_now', {method:'POST'})
+      .finally(() => setTimeout(() => {
+        document.getElementById('claim-btn').disabled = false;
+      }, 3000));
+    nextCycleAt = Date.now() + currentInterval * 1000;
   }
 
   // ── CLEAR LOG ──────────────────────────────────────────────────────────────
-
   function clearLog() {
-    document.getElementById('log-entries').innerHTML =
-      '<p class="empty-log">Log cleared.</p>';
+    document.getElementById('log-list').innerHTML = '<p class="empty-msg">Log cleared.</p>';
+    lastLogCount = 0;
+    document.getElementById('tab-log-cnt').textContent = '0';
+  }
+
+  // ── STATUS POLLING ─────────────────────────────────────────────────────────
+  let currentMode     = 'night';
+  let currentInterval = {{ night_interval }} * 60;
+
+  function setUploadStatus(text, cls = '') {
+    const el = document.getElementById('upload-status');
+    el.textContent = text;
+    el.className = 'upload-status' + (cls ? ' ' + cls : '');
+  }
+
+  async function uploadImage() {
+    const key = document.getElementById('upload-poi-key').value;
+    const mode = document.getElementById('upload-mode').value;
+    const fileEl = document.getElementById('upload-file');
+    const btn = document.getElementById('upload-btn');
+    const file = fileEl.files[0];
+
+    if (!key) {
+      setUploadStatus('Pick a POI first', 'err');
+      return;
+    }
+    if (!file) {
+      setUploadStatus('Choose an image file', 'err');
+      return;
+    }
+
+    btn.disabled = true;
+    setUploadStatus('Uploading...');
+
+    const form = new FormData();
+    form.append('key', key);
+    form.append('mode', mode);
+    form.append('image', file);
+
+    try {
+      const resp = await fetch('/api/upload_image', { method: 'POST', body: form });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'upload failed');
+      fileEl.value = '';
+      setUploadStatus(`Saved for ${data.poi} (${data.mode})`, 'ok');
+    } catch (err) {
+      setUploadStatus(err.message || 'upload failed', 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function pollStatus() {
+    try {
+      const d = await fetch('/api/status').then(r => r.json());
+      currentMode     = d.mode;
+      currentInterval = d.interval * 60;
+
+      const badge = currentMode === 'night'
+        ? '<span class="mode-badge night">🌙 NIGHT</span>'
+        : '<span class="mode-badge day">☀ DAY</span>';
+      document.getElementById('h-mode').innerHTML = badge;
+      document.getElementById('h-time').textContent = d.server_time;
+
+      if (d.next_run && d.next_run !== '—' && !nextCycleAt) {
+        const parts = d.next_run.split(':').map(Number);
+        const t = new Date();
+        t.setHours(parts[0], parts[1], parts[2], 0);
+        if (t <= new Date()) t.setDate(t.getDate() + 1);
+        nextCycleAt = t.getTime();
+      }
+    } catch {}
+  }
+
+  // ── LOG POLLING ────────────────────────────────────────────────────────────
+  async function pollLog() {
+    try {
+      const d = await fetch('/api/log').then(r => r.json());
+      const entries = d.log;
+      if (entries.length === lastLogCount) return;
+      lastLogCount = entries.length;
+      document.getElementById('tab-log-cnt').textContent = Math.min(entries.length, 99);
+
+      if (!entries.length) {
+        document.getElementById('log-list').innerHTML = '<p class="empty-msg">No activity yet.</p>';
+        return;
+      }
+      document.getElementById('log-list').innerHTML = entries.map(e => {
+        const modeTag = e.mode
+          ? `<span class="log-mode ${e.mode}">${e.mode === 'night' ? '🌙' : '☀'}</span>` : '';
+        let det = '';
+        if (e.status === 'ok')    det = `<span class="c-ok">✓ claimed</span> · img: ${e.img_source} · ${e.http}`;
+        else if (e.status==='warn') det = `<span class="c-warn">⚠ cached/warn</span> · ${e.http}`;
+        else if (e.status==='error') det = `<span class="c-err">✗ ${e.error || e.http}</span>`;
+        return `<div class="log-entry ${e.status}">
+          <div class="log-head">
+            <span class="log-poi">${e.poi}${modeTag}</span>
+            <span class="log-ts">${e.ts}</span>
+          </div>
+          ${det ? `<div class="log-det">${det}</div>` : ''}
+        </div>`;
+      }).join('');
+    } catch {}
+  }
+
+  // ── COUNTDOWN ──────────────────────────────────────────────────────────────
+  function tickCountdown() {
+    if (!nextCycleAt) return;
+    const diff = Math.max(0, nextCycleAt - Date.now());
+    if (diff === 0) nextCycleAt = Date.now() + currentInterval * 1000;
+    const m = Math.floor(diff / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    document.getElementById('countdown').textContent =
+      String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
   }
 
   // ── INIT ───────────────────────────────────────────────────────────────────
-
   (async function init() {
-    // Load initial selection state from server
-    const r = await fetch('/api/pois');
-    const d = await r.json();
+    const d = await fetch('/api/pois').then(r => r.json());
     d.pois.forEach(p => {
-      if (p.selected) {
-        selectedKeys.add(p.key);
-        const card = document.querySelector(`.poi-card[data-key="${p.key}"]`);
-        if (card) card.classList.add('selected');
-      }
+      if (p.night) nightSel.add(p.key);
+      if (p.day)   daySel.add(p.key);
     });
-    updateSelCount();
+    // Apply card classes for both grids
+    document.querySelectorAll('.poi-card').forEach(card => updateCardClasses(card));
+    updateCounts();
 
-    // Kick off timers
+    await pollStatus();
+    document.getElementById('upload-mode').value = currentMode;
+    await pollLog();
     setInterval(tickCountdown, 1000);
-    setInterval(pollLog,      3000);
-    setInterval(pollStatus,   5000);
-    pollStatus();
-    pollLog();
+    setInterval(pollLog,       3000);
+    setInterval(pollStatus,    8000);
   })();
 </script>
 </body>

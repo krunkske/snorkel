@@ -4,7 +4,6 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Mount your data folder — put rows.json and images/ here
       - ./data:/data
     environment:
       # ── AppSheet credentials ───────────────────────────────
@@ -15,7 +14,12 @@ services:
       BUILD:       "aaaaaaaaaaaaaaaaaaaa-1775242405640-9e8e0270"
       # ── Game settings ──────────────────────────────────────
       NEW_OWNER:               "Chiro Oostham"
-      CLAIM_INTERVAL_MINUTES:  "15"
-      DELAY_MIN:               "2"    # min seconds between POI updates
-      DELAY_MAX:               "8"    # max seconds between POI updates
+      # Night window: 01:00 – 08:00
+      NIGHT_START:             "1"
+      NIGHT_END:               "8"
+      NIGHT_INTERVAL_MINUTES:  "15"   # claim every 15 min at night
+      DAY_INTERVAL_MINUTES:    "30"   # claim every 30 min during day
+      # Spread claims randomly across 3–5 minutes per cycle
+      SPREAD_MIN:              "180"
+      SPREAD_MAX:              "300"
     restart: unless-stopped
