@@ -1,13 +1,6 @@
 """
-POI Claimer Dashboard — Flask backend
-
-Time modes
-----------
-NIGHT  01:00 – 08:00  → night_keys selected, interval = NIGHT_INTERVAL_MINUTES (15)
-DAY    08:00 – 01:00  → day_keys selected,   interval = DAY_INTERVAL_MINUTES   (30)
-
-Each cycle spreads its claims randomly across SPREAD_SECONDS (180–300 s).
-Claims that don't fit within the interval window are simply skipped that round.
+POI Claimer — Game Management Dashboard
+Flask backend
 """
 
 import json
@@ -17,15 +10,12 @@ import random
 import base64
 import time
 import threading
-from uuid import uuid4
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify, render_template, request
-from werkzeug.exceptions import RequestEntityTooLarge
-from werkzeug.utils import secure_filename
 
 # ── LOGGING ───────────────────────────────────────────────────────────────────
 
@@ -37,331 +27,524 @@ log = logging.getLogger(__name__)
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 
-SYNC_TOKEN = os.environ.get("SYNC_TOKEN", (
+SYNC_TOKEN  = os.environ.get("SYNC_TOKEN", (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
     ".eyJhcHBJZCI6IjA0ZWQzMjI1LThiZGYtNDkzYS1iODRiLTRmY2RlNDU4ZWUwNyIsImFwcFZlcnNpb24iOiIxLjAwMDQyOSIsInVzZXJJZCI6Ii0xIiwiaWF0IjoxNzc1NTA3MTA5LCJleHAiOjE3ODMyODMxMDksImlzcyI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSIsImF1ZCI6Imh0dHBzOi8vd3d3LmFwcHNoZWV0LmNvbSJ9"
     ".9Z3XiDHVAdv5lpuG8FwlB8WyWu_W2iOAFkC5slNHRns"
 ))
-
 APP_ID      = os.environ.get("APP_ID",      "04ed3225-8bdf-493a-b84b-4fcde458ee07")
 APP_VERSION = os.environ.get("APP_VERSION", "1.000429")
 CLIENT_ID   = os.environ.get("CLIENT_ID",   "2fdccef5-01f6-4877-b7d4-5e6f58696259")
 BUILD       = os.environ.get("BUILD",       "aaaaaaaaaaaaaaaaaaaa-1775242405640-9e8e0270")
 NEW_OWNER   = os.environ.get("NEW_OWNER",   "Chiro Oostham")
 
-ROWS_FILE  = Path(os.environ.get("ROWS_FILE",  "/data/rows.json"))
-IMAGES_DIR = Path(os.environ.get("IMAGES_DIR", "/data/images"))
-MAX_IMAGE_SIZE_MB = int(os.environ.get("MAX_IMAGE_SIZE_MB", "10"))
+IMAGES_DIR  = Path(os.environ.get("IMAGES_DIR", "/data/images"))
+IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-ALLOWED_IMAGE_MIME_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-}
+# ── STATE (in-memory, persisted to state.json) ────────────────────────────────
 
-# Night = 01:00–08:00, Day = 08:00–01:00
-NIGHT_START = int(os.environ.get("NIGHT_START", "1"))   # hour (24h)
-NIGHT_END   = int(os.environ.get("NIGHT_END",   "8"))   # hour (24h)
+STATE_FILE = Path(os.environ.get("STATE_FILE", "/data/state.json"))
 
-NIGHT_INTERVAL_MINUTES = int(os.environ.get("NIGHT_INTERVAL_MINUTES", "15"))
-DAY_INTERVAL_MINUTES   = int(os.environ.get("DAY_INTERVAL_MINUTES",   "30"))
+def default_state():
+    return {
+        "night_keys":    [],   # row keys selected for night
+        "day_keys":      [],   # row keys selected for day
+        "loop_enabled":  False,
+        "loop_interval": 4,    # minutes between polls
+        "use_local_images": True,
+        "night_start":   1,    # hour 0-23
+        "night_end":     8,    # hour 0-23
+    }
 
-# Spread: claims are randomly distributed across this many seconds
-SPREAD_MIN = int(os.environ.get("SPREAD_MIN", "180"))   # 3 min
-SPREAD_MAX = int(os.environ.get("SPREAD_MAX", "300"))   # 5 min
+def load_state():
+    if STATE_FILE.exists():
+        try:
+            with open(STATE_FILE) as f:
+                saved = json.load(f)
+            base = default_state()
+            base.update(saved)
+            return base
+        except Exception:
+            pass
+    return default_state()
 
-# ── STATE ─────────────────────────────────────────────────────────────────────
+def save_state():
+    with state_lock:
+        snapshot = {
+            "night_keys":       list(night_keys),
+            "day_keys":         list(day_keys),
+            "loop_enabled":     loop_enabled,
+            "loop_interval":    loop_interval,
+            "use_local_images": use_local_images,
+            "night_start":      night_start,
+            "night_end":        night_end,
+        }
+    with open(STATE_FILE, "w") as f:
+        json.dump(snapshot, f, indent=2)
 
-# Two independent selection sets — night claims more aggressively
-night_keys: set = set()
-day_keys:   set = set()
-state_lock = threading.Lock()
+_state = load_state()
+
+state_lock      = threading.Lock()
+night_keys      = set(_state["night_keys"])
+day_keys        = set(_state["day_keys"])
+loop_enabled    = _state["loop_enabled"]
+loop_interval   = _state["loop_interval"]   # minutes
+use_local_images = _state["use_local_images"]
+night_start     = _state["night_start"]
+night_end       = _state["night_end"]
 
 # Activity log
-claim_log: list = []
-MAX_LOG = 300
+activity_log = []
+MAX_LOG      = 300
+log_lock     = threading.Lock()
 
-# Prevent overlapping cycles
-cycle_running = False
+# Cached live POI data (from last sync)
+poi_cache     = {}   # key -> row dict
+poi_cache_ts  = None
+cache_lock    = threading.Lock()
 
-# ── LOAD ROWS ─────────────────────────────────────────────────────────────────
-
-def load_rows():
-    with open(ROWS_FILE, encoding="utf-8") as f:
-        return json.load(f)
-
-ALL_ROWS = load_rows()
-ROWS_BY_KEY = {r[1]: r for r in ALL_ROWS}
+# Prevent overlapping loops
+loop_running = False
+loop_lock    = threading.Lock()
 
 # ── TIME HELPERS ──────────────────────────────────────────────────────────────
 
 def is_night() -> bool:
-    hour = datetime.now().hour
-    return NIGHT_START <= hour < NIGHT_END
-
+    h = datetime.now().hour
+    return night_start <= h < night_end
 
 def current_mode() -> str:
     return "night" if is_night() else "day"
 
+def active_keys() -> set:
+    with state_lock:
+        return set(night_keys if is_night() else day_keys)
 
-def current_interval() -> int:
-    return NIGHT_INTERVAL_MINUTES if is_night() else DAY_INTERVAL_MINUTES
-
-
-def ts(offset_ms: int = 0) -> str:
+def ts_str(offset_ms: int = 0) -> str:
     t = datetime.now(timezone.utc) + timedelta(milliseconds=offset_ms)
     return t.strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
+
+def log_event(entry: dict):
+    entry["ts"] = datetime.now().strftime("%H:%M:%S")
+    with log_lock:
+        activity_log.insert(0, entry)
+        del activity_log[MAX_LOG:]
 
 # ── IMAGE HELPERS ─────────────────────────────────────────────────────────────
 
 def pick_local_image(poi_name: str) -> str:
-    """
-    Try images/<poi_name>/night/ or images/<poi_name>/day/ depending on time.
-    Falls back to the other subfolder, then to empty string.
-    Returns a base64 data URI or "".
-    """
-    preferred = "night" if is_night() else "day"
-    fallback  = "day"   if preferred == "night" else "night"
-
-    for sub in (preferred, fallback):
-        folder = IMAGES_DIR / poi_name / sub
+    """Return base64 data URI from images/<poi_name>/(day|night)/ or ''."""
+    sub  = "night" if is_night() else "day"
+    other = "day" if sub == "night" else "night"
+    for folder_name in (sub, other):
+        folder = IMAGES_DIR / poi_name / folder_name
         if not folder.exists():
             continue
-        candidates = [
-            p for p in folder.iterdir()
-            if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-        ]
-        if candidates:
-            chosen = random.choice(candidates)
-            data   = chosen.read_bytes()
+        imgs = [p for p in folder.iterdir()
+                if p.suffix.lower() in {".jpg",".jpeg",".png",".gif",".webp"}]
+        if imgs:
+            chosen = random.choice(imgs)
+            raw    = chosen.read_bytes()
             ext    = chosen.suffix.lower().lstrip(".")
-            mime   = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
-                      "png": "image/png",  "gif": "image/gif",
-                      "webp": "image/webp"}.get(ext, "image/jpeg")
-            return f"data:{mime};base64,{base64.b64encode(data).decode()}"
+            mime   = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png",
+                      "gif":"image/gif","webp":"image/webp"}.get(ext,"image/jpeg")
+            return f"data:{mime};base64,{base64.b64encode(raw).decode()}"
     return ""
 
+def resolve_image(row: dict) -> str:
+    """Pick image based on use_local_images toggle."""
+    with state_lock:
+        local_pref = use_local_images
+    if local_pref:
+        local = pick_local_image(row["name"])
+        if local:
+            return local
+    # Fall back to server image
+    return row.get("image", "")
 
-def resolve_image(row: list, poi_name: str) -> str:
-    local = pick_local_image(poi_name)
-    if local:
-        return local
-    return row[13] if len(row) > 13 else ""
-
-
-def is_allowed_upload(filename: str, mimetype: str) -> bool:
-    ext = Path(filename).suffix.lower()
-    return ext in ALLOWED_IMAGE_EXTENSIONS and mimetype in ALLOWED_IMAGE_MIME_TYPES
+def list_images(poi_name: str) -> dict:
+    """Return {day: [filenames], night: [filenames]} for a POI."""
+    result = {"day": [], "night": []}
+    for slot in ("day", "night"):
+        folder = IMAGES_DIR / poi_name / slot
+        if folder.exists():
+            result[slot] = sorted(
+                p.name for p in folder.iterdir()
+                if p.suffix.lower() in {".jpg",".jpeg",".png",".gif",".webp"}
+            )
+    return result
 
 # ── APPSHEET API ──────────────────────────────────────────────────────────────
 
-def claim_poi(row: list) -> dict:
-    row      = list(row)
-    poi_name = row[2]
-    row[4]   = NEW_OWNER
-    row[13]  = resolve_image(row, poi_name)
+def appsheet_sync() -> list[dict] | None:
+    """
+    Fetch all Locations from AppSheet.
+    Returns list of dicts or None on failure.
+    """
+    now = ts_str()
+    body = {
+        "settings": json.dumps({
+            "_RowNumber":"0","_EMAIL":"","_NAME":"","_LOCATION":"",
+            "Team":"","Option 1":"","Option 2":"","Country Option":"",
+            "Language Option":"","Option 5":"","Option 6":"","Option 7":"",
+            "Option 8":"","Option 9":"","_THISUSER":"onlyvalue"
+        }),
+        "getAllTables": True,
+        "syncsOnConsent": True,
+        "syncUI": "Blocking",
+        "initiatedBy": "AppStart",
+        "isPreview": False,
+        "apiLevel": 2,
+        "supportsJsonDataSets": True,
+        "tzOffset": -120,
+        "locale": "en-US",
+        "perTableParams": {
+            "Locations":    {"time": "0001-01-01T00:00:00", "etag": ""},
+            "Score":        {"time": "0001-01-01T00:00:00", "etag": ""},
+            "Captures":     {"time": "0001-01-01T00:00:00", "etag": ""},
+            "Nested table": {"time": "0001-01-01T00:00:00", "etag": ""},
+        },
+        "lastSyncTime":  now,
+        "appStartTime":  now,
+        "dataStamp":     now,
+        "clientId":      CLIENT_ID,
+        "build":         BUILD,
+        "hasValidPlan":  True,
+        "userConsentedScopes": "data_input,device_identity,device_io,location,usage",
+        "localVersion":  APP_VERSION,
+        "location":      "0.000000, 0.000000",
+        "syncToken":     SYNC_TOKEN,
+    }
+    try:
+        resp = requests.post(
+            f"https://www.appsheet.com/api/template/{APP_ID}/",
+            headers={
+                "Content-Type":     "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+                "Origin":           "https://www.appsheet.com",
+                "Referer":          f"https://www.appsheet.com/start/{APP_ID}",
+            },
+            json=body,
+            timeout=30,
+        )
+        data = resp.json()
+        if not data.get("Success"):
+            log.error(f"Sync failed: {data.get('ErrorDescription')}")
+            return None
 
-    img_source = "local" if row[13].startswith("data:") else ("server" if row[13] else "none")
+        # Parse Locations table
+        pois = []
+        for ds in data.get("NestedDataSets", []):
+            if ds["Name"] == "Locations":
+                table = json.loads(ds["DataSet"])
+                cols  = table["columns"]
+                # Build index map
+                idx = {c: i for i, c in enumerate(cols)}
+                for row in table["data"]:
+                    def g(col, default=""):
+                        i = idx.get(col)
+                        return row[i] if i is not None and i < len(row) else default
+                    pois.append({
+                        "row_num":  g("_RowNumber"),
+                        "key":      g("Row ID"),
+                        "name":     g("Names"),
+                        "coords":   g("Location"),
+                        "owner":    g("Owner"),
+                        "gemeente": g("Gemeente"),
+                        "progress": g("Progress"),
+                        "bar":      g("Progressbar"),
+                        "image":    g("Image"),
+                        # keep full raw row for update call
+                        "_raw":     row,
+                        "_cols":    cols,
+                    })
+                break
+        return pois
+    except Exception as e:
+        log.error(f"Sync exception: {e}")
+        return None
+
+
+def appsheet_claim(poi: dict) -> dict:
+    """
+    Claim a single POI for NEW_OWNER.
+    poi must have _raw and _cols from appsheet_sync().
+    """
+    raw  = list(poi["_raw"])
+    cols = poi["_cols"]
+    idx  = {c: i for i, c in enumerate(cols)}
+
+    # Set owner
+    if "Owner" in idx:
+        raw[idx["Owner"]] = NEW_OWNER
+
+    # Set image (last column = Image based on our earlier analysis)
+    img = resolve_image(poi)
+    if "Image" in idx:
+        raw[idx["Image"]] = img
+
+    img_source = "local" if img.startswith("data:") else ("server" if img else "none")
 
     settings = {
-        "_RowNumber": "0", "_EMAIL": "guest", "_NAME": "Guest",
-        "_LOCATION": "", "Team": NEW_OWNER,
-        "Option 1": "", "Option 2": "", "Country Option": "",
-        "Language Option": "", "Option 5": "", "Option 6": "",
-        "Option 7": "", "Option 8": "", "Option 9": "",
-        "_THISUSER": "onlyvalue",
+        "_RowNumber":"0","_EMAIL":"guest","_NAME":"Guest","_LOCATION":"",
+        "Team": NEW_OWNER,
+        "Option 1":"","Option 2":"","Country Option":"","Language Option":"",
+        "Option 5":"","Option 6":"","Option 7":"","Option 8":"","Option 9":"",
+        "_THISUSER":"onlyvalue",
     }
 
-    params = {
-        "tzOffset":           "-120",
-        "settings":           json.dumps(settings),
-        "apiLevel":           "2",
-        "isPreview":          "false",
-        "checkCache":         "false",
-        "locale":             "en-US",
-        "location":           "null, null",
-        "appTemplateVersion": APP_VERSION,
-        "localVersion":       APP_VERSION,
-        "timestamp":          ts(0),
-        "requestStartTime":   ts(3),
-        "lastSyncTime":       ts(-30000),
-        "appStartTime":       ts(-60000),
-        "dataStamp":          ts(0),
-        "clientId":           CLIENT_ID,
-        "build":              BUILD,
-        "requestId":          str(random.randint(1_000_000, 99_999_999)),
-        "syncToken":          SYNC_TOKEN,
-    }
-
-    headers = {
-        "Content-Type":     "application/json",
-        "X-Requested-With": "XMLHttpRequest",
-        "Origin":           "https://www.appsheet.com",
-        "Referer":          f"https://www.appsheet.com/start/{APP_ID}",
-    }
+    def mk_ts(offset_ms=0):
+        t = datetime.now(timezone.utc) + timedelta(milliseconds=offset_ms)
+        return t.strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
 
     try:
-        resp   = requests.post(
+        resp = requests.post(
             f"https://www.appsheet.com/api/template/{APP_ID}/table/Locations/row/update",
-            params=params, headers=headers,
-            json={"row": row, "pii": [False] * len(row)},
+            params={
+                "tzOffset":           "-120",
+                "settings":           json.dumps(settings),
+                "apiLevel":           "2",
+                "isPreview":          "false",
+                "checkCache":         "false",
+                "locale":             "en-US",
+                "location":           "null, null",
+                "appTemplateVersion": APP_VERSION,
+                "localVersion":       APP_VERSION,
+                "timestamp":          mk_ts(0),
+                "requestStartTime":   mk_ts(3),
+                "lastSyncTime":       mk_ts(-30000),
+                "appStartTime":       mk_ts(-60000),
+                "dataStamp":          mk_ts(0),
+                "clientId":           CLIENT_ID,
+                "build":              BUILD,
+                "requestId":          str(random.randint(1_000_000, 99_999_999)),
+                "syncToken":          SYNC_TOKEN,
+            },
+            headers={
+                "Content-Type":     "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+                "Origin":           "https://www.appsheet.com",
+                "Referer":          f"https://www.appsheet.com/start/{APP_ID}",
+            },
+            json={"row": raw, "pii": [False] * len(raw)},
             timeout=30,
         )
         result = resp.json()
-        ok     = result.get("Success") and not result.get("ReturnedFromCache")
-        return {
-            "poi":        poi_name,
-            "key":        row[1],
-            "status":     "ok" if ok else "warn",
-            "http":       resp.status_code,
-            "cached":     result.get("ReturnedFromCache"),
-            "img_source": img_source,
-            "mode":       current_mode(),
-            "ts":         datetime.now().strftime("%H:%M:%S"),
-        }
+        ok = result.get("Success") and not result.get("ReturnedFromCache")
+        return {"ok": ok, "http": resp.status_code,
+                "cached": result.get("ReturnedFromCache"),
+                "img_source": img_source}
     except Exception as e:
-        return {
-            "poi":        poi_name,
-            "key":        row[1],
-            "status":     "error",
-            "http":       0,
-            "cached":     False,
-            "img_source": img_source,
-            "mode":       current_mode(),
-            "error":      str(e),
-            "ts":         datetime.now().strftime("%H:%M:%S"),
-        }
+        return {"ok": False, "error": str(e), "img_source": img_source}
 
-# ── SCHEDULER JOB ─────────────────────────────────────────────────────────────
+# ── MAIN LOOP ─────────────────────────────────────────────────────────────────
 
-def claim_cycle():
-    global cycle_running
-    with state_lock:
-        if cycle_running:
-            log.info("Cycle already running, skipping this tick.")
+def run_loop(force_all: bool = False):
+    """
+    Core logic:
+    1. Sync live POI data from AppSheet
+    2. Check which selected POIs have the wrong owner
+    3. If force_all: claim all of them immediately
+       Otherwise:    claim exactly 1 and stop
+    """
+    global loop_running
+    with loop_lock:
+        if loop_running and not force_all:
+            log.info("Loop already running, skipping tick.")
             return
-        cycle_running = True
+        loop_running = True
 
+    try:
         mode = current_mode()
-        keys_to_claim = set(night_keys if mode == "night" else day_keys)
+        keys = active_keys() if not force_all else (
+            with_lock(lambda: night_keys | day_keys)
+        )
 
-    if not keys_to_claim:
-        log.info(f"Claim cycle ({mode}): no POIs in {mode} list, skipping.")
-        with state_lock:
-            cycle_running = False
-        return
+        log_event({"type": "poll", "msg": f"Syncing live data ({mode} mode)…", "mode": mode})
+        log.info(f"run_loop: syncing ({mode}, force_all={force_all})")
 
-    # Spread claims randomly across SPREAD_MIN–SPREAD_MAX seconds
-    spread_secs  = random.randint(SPREAD_MIN, SPREAD_MAX)
-    interval_sec = current_interval() * 60
-    # Cap spread to the interval so we never bleed into the next cycle
-    spread_secs  = min(spread_secs, interval_sec - 10)
+        pois = appsheet_sync()
+        if pois is None:
+            log_event({"type": "error", "msg": "Sync failed — check credentials/network."})
+            return
 
-    keys_list = list(keys_to_claim)
-    random.shuffle(keys_list)
+        # Update cache
+        with cache_lock:
+            global poi_cache, poi_cache_ts
+            poi_cache    = {p["key"]: p for p in pois}
+            poi_cache_ts = datetime.now().strftime("%H:%M:%S")
 
-    # Generate sorted random offsets within spread window
-    offsets = sorted(random.uniform(0, spread_secs) for _ in keys_list)
-
-    log.info(f"Claim cycle ({mode}): {len(keys_list)} POIs spread over {spread_secs}s")
-
-    cycle_start = time.monotonic()
-
-    with state_lock:
-        claim_log.insert(0, {
-            "poi":    f"— {mode.upper()} cycle started ({len(keys_list)} POIs, spread {spread_secs}s) —",
-            "key":    "",
-            "status": "info",
-            "ts":     datetime.now().strftime("%H:%M:%S"),
-            "mode":   mode,
-        })
-        del claim_log[MAX_LOG:]
-
-    for i, key in enumerate(keys_list):
-        # Wait until this POI's scheduled offset
-        target_elapsed = offsets[i]
-        now_elapsed    = time.monotonic() - cycle_start
-        wait_for       = target_elapsed - now_elapsed
-        if wait_for > 0:
-            time.sleep(wait_for)
-
-        # Re-check selection — user may have deselected mid-run
-        with state_lock:
-            active_set = night_keys if mode == "night" else day_keys
-            if key not in active_set:
-                log.info(f"  Skipping {key} (deselected mid-run)")
+        # Find POIs that need claiming
+        to_claim = []
+        for poi in pois:
+            key = poi["key"]
+            if key not in keys:
                 continue
+            if poi["owner"] != NEW_OWNER:
+                to_claim.append(poi)
 
-        row = ROWS_BY_KEY.get(key)
-        if not row:
-            log.warning(f"  Key {key} not found in rows data, skipping.")
-            continue
+        if not to_claim:
+            log_event({"type": "ok", "msg": f"All {len(keys)} selected POIs already owned by {NEW_OWNER}.", "mode": mode})
+            log.info("run_loop: nothing to claim.")
+            return
 
-        result = claim_poi(row)
+        log_event({
+            "type": "info",
+            "msg":  f"{len(to_claim)} POI(s) need reclaiming.",
+            "mode": mode,
+        })
 
-        with state_lock:
-            claim_log.insert(0, result)
-            del claim_log[MAX_LOG:]
+        targets = to_claim if force_all else [random.choice(to_claim)]
 
-        log.info(f"  [{result['status'].upper()}] {result['poi']} (img:{result['img_source']})")
+        for poi in targets:
+            log.info(f"  Claiming: {poi['name']} (currently owned by {poi['owner']})")
+            result = appsheet_claim(poi)
 
-    log.info(f"Claim cycle ({mode}) complete. Total elapsed: {time.monotonic()-cycle_start:.1f}s")
+            log_event({
+                "type":      "claim_ok" if result["ok"] else "claim_warn",
+                "poi":       poi["name"],
+                "prev_owner": poi["owner"],
+                "img":       result.get("img_source", "?"),
+                "mode":      mode,
+                "msg":       f"{'✓' if result['ok'] else '⚠'} {poi['name']} ← {poi['owner']}",
+            })
+
+            if force_all:
+                time.sleep(0.5)   # tiny pause between bulk claims
+
+        log.info(f"run_loop: done. Claimed {len(targets)} POI(s).")
+
+    finally:
+        with loop_lock:
+            loop_running = False
+
+
+def with_lock(fn):
     with state_lock:
-        cycle_running = False
+        return fn()
 
+# ── SCHEDULER ─────────────────────────────────────────────────────────────────
+
+scheduler = BackgroundScheduler(timezone="Europe/Brussels")
+
+def scheduler_tick():
+    with state_lock:
+        enabled  = loop_enabled
+        interval = loop_interval
+    if not enabled:
+        return
+    # Check if interval has elapsed since last run
+    with loop_lock:
+        running = loop_running
+    if running:
+        return
+    threading.Thread(target=run_loop, daemon=True).start()
+
+# Tick every minute; actual interval enforced inside run_loop via APScheduler
+# We reschedule dynamically when interval changes
+def reschedule(minutes: int):
+    if scheduler.get_job("main_loop"):
+        scheduler.remove_job("main_loop")
+    scheduler.add_job(
+        scheduler_tick,
+        trigger="interval",
+        minutes=minutes,
+        id="main_loop",
+        replace_existing=True,
+    )
 
 # ── FLASK APP ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = MAX_IMAGE_SIZE_MB * 1024 * 1024
-
-
-@app.errorhandler(RequestEntityTooLarge)
-def handle_request_too_large(_err):
-    return jsonify({"error": f"file too large (max {MAX_IMAGE_SIZE_MB} MB)"}), 413
-
 
 @app.route("/")
 def index():
-    return render_template("index.html",
-                           pois=ALL_ROWS,
-                           new_owner=NEW_OWNER,
-                           night_interval=NIGHT_INTERVAL_MINUTES,
-                           day_interval=DAY_INTERVAL_MINUTES,
-                           night_start=NIGHT_START,
-                           night_end=NIGHT_END)
+    return render_template("index.html", new_owner=NEW_OWNER)
 
 
-@app.route("/api/pois")
-def api_pois():
+# ── POI DATA ──────────────────────────────────────────────────────────────────
+
+@app.route("/api/sync")
+def api_sync():
+    """Manually trigger a live sync and return fresh POI data."""
+    pois = appsheet_sync()
+    if pois is None:
+        return jsonify({"error": "Sync failed"}), 502
+
+    with cache_lock:
+        global poi_cache, poi_cache_ts
+        poi_cache    = {p["key"]: p for p in pois}
+        poi_cache_ts = datetime.now().strftime("%H:%M:%S")
+
     with state_lock:
         nk = set(night_keys)
         dk = set(day_keys)
+
     return jsonify({
+        "ts":   poi_cache_ts,
         "pois": [
             {
-                "key":      r[1],
-                "name":     r[2],
-                "gemeente": r[5],
-                "night":    r[1] in nk,
-                "day":      r[1] in dk,
+                "key":      p["key"],
+                "name":     p["name"],
+                "gemeente": p["gemeente"],
+                "owner":    p["owner"],
+                "progress": p["progress"],
+                "bar":      p["bar"],
+                "ours":     p["owner"] == NEW_OWNER,
+                "night":    p["key"] in nk,
+                "day":      p["key"] in dk,
+                "images":   list_images(p["name"]),
             }
-            for r in ALL_ROWS
+            for p in pois
         ],
     })
 
 
+@app.route("/api/cache")
+def api_cache():
+    """Return cached POI data (no network call)."""
+    with cache_lock:
+        pois = list(poi_cache.values())
+        ts   = poi_cache_ts
+    with state_lock:
+        nk = set(night_keys)
+        dk = set(day_keys)
+
+    if not pois:
+        return jsonify({"ts": None, "pois": []})
+
+    return jsonify({
+        "ts":   ts,
+        "pois": [
+            {
+                "key":      p["key"],
+                "name":     p["name"],
+                "gemeente": p["gemeente"],
+                "owner":    p["owner"],
+                "progress": p["progress"],
+                "bar":      p["bar"],
+                "ours":     p["owner"] == NEW_OWNER,
+                "night":    p["key"] in nk,
+                "day":      p["key"] in dk,
+                "images":   list_images(p["name"]),
+            }
+            for p in pois
+        ],
+    })
+
+
+# ── SELECTION ─────────────────────────────────────────────────────────────────
+
 @app.route("/api/select", methods=["POST"])
 def api_select():
     data = request.json or {}
-    key  = data.get("key")
-    mode = data.get("mode", "night")   # "night" or "day"
-    sel  = data.get("selected", True)
+    key  = data.get("key", "")
+    mode = data.get("mode", "night")
+    sel  = bool(data.get("selected", True))
 
-    if not key or key not in ROWS_BY_KEY:
-        return jsonify({"error": "unknown key"}), 400
+    with cache_lock:
+        if key not in poi_cache:
+            return jsonify({"error": "unknown key"}), 400
 
     with state_lock:
         target = night_keys if mode == "night" else day_keys
@@ -371,17 +554,20 @@ def api_select():
             target.discard(key)
         counts = {"night": len(night_keys), "day": len(day_keys)}
 
+    save_state()
     return jsonify({"key": key, "mode": mode, "selected": sel, "counts": counts})
 
 
 @app.route("/api/select_all", methods=["POST"])
 def api_select_all():
-    data = request.json or {}
-    keys = data.get("keys", [])
-    mode = data.get("mode", "night")
-    sel  = data.get("selected", True)
+    data  = request.json or {}
+    keys  = data.get("keys", [])
+    mode  = data.get("mode", "night")
+    sel   = bool(data.get("selected", True))
 
-    valid = [k for k in keys if k in ROWS_BY_KEY]
+    with cache_lock:
+        valid = [k for k in keys if k in poi_cache]
+
     with state_lock:
         target = night_keys if mode == "night" else day_keys
         if sel:
@@ -391,132 +577,152 @@ def api_select_all():
                 target.discard(k)
         counts = {"night": len(night_keys), "day": len(day_keys)}
 
+    save_state()
     return jsonify({"updated": len(valid), "counts": counts})
 
 
-@app.route("/api/upload_image", methods=["POST"])
-def api_upload_image():
-    key = (request.form.get("key") or "").strip()
-    mode = (request.form.get("mode") or "").strip().lower()
-    file = request.files.get("image")
+# ── LOOP CONTROL ──────────────────────────────────────────────────────────────
 
-    if key not in ROWS_BY_KEY:
-        return jsonify({"error": "unknown key"}), 400
-    if mode not in {"day", "night"}:
-        return jsonify({"error": "mode must be day or night"}), 400
-    if not file or not file.filename:
-        return jsonify({"error": "image file is required"}), 400
+@app.route("/api/loop", methods=["GET"])
+def api_loop_get():
+    with state_lock:
+        return jsonify({
+            "enabled":        loop_enabled,
+            "interval":       loop_interval,
+            "use_local_images": use_local_images,
+            "night_start":    night_start,
+            "night_end":      night_end,
+            "mode":           current_mode(),
+            "running":        loop_running,
+        })
 
-    filename = secure_filename(file.filename)
-    mimetype = (file.mimetype or "").lower()
-    if not filename or not is_allowed_upload(filename, mimetype):
-        return jsonify({"error": "only jpg, png, gif, and webp images are allowed"}), 400
 
-    row = ROWS_BY_KEY[key]
-    poi_name = str(row[2]).strip()
-    poi_dir = IMAGES_DIR / poi_name / mode
-    images_root = IMAGES_DIR.resolve()
-    target_dir = poi_dir.resolve()
+@app.route("/api/loop", methods=["POST"])
+def api_loop_set():
+    global loop_enabled, loop_interval, use_local_images, night_start, night_end
+    data = request.json or {}
 
-    # Ensure uploads cannot escape the configured images root.
-    if images_root not in target_dir.parents and target_dir != images_root:
-        return jsonify({"error": "invalid target path"}), 400
+    with state_lock:
+        if "enabled" in data:
+            loop_enabled = bool(data["enabled"])
+        if "interval" in data:
+            loop_interval = max(1, int(data["interval"]))
+            reschedule(loop_interval)
+        if "use_local_images" in data:
+            use_local_images = bool(data["use_local_images"])
+        if "night_start" in data:
+            night_start = int(data["night_start"])
+        if "night_end" in data:
+            night_end = int(data["night_end"])
 
-    target_dir.mkdir(parents=True, exist_ok=True)
+        result = {
+            "enabled":        loop_enabled,
+            "interval":       loop_interval,
+            "use_local_images": use_local_images,
+            "night_start":    night_start,
+            "night_end":      night_end,
+        }
 
-    ext = Path(filename).suffix.lower()
-    out_name = f"upload-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:8]}{ext}"
-    out_path = target_dir / out_name
-    file.save(out_path)
-
-    return jsonify({
-        "ok": True,
-        "key": key,
-        "poi": poi_name,
-        "mode": mode,
-        "file": out_name,
-    })
+    save_state()
+    return jsonify(result)
 
 
 @app.route("/api/claim_now", methods=["POST"])
 def api_claim_now():
-    t = threading.Thread(target=claim_cycle, daemon=True)
-    t.start()
+    """Trigger one loop tick immediately."""
+    threading.Thread(target=run_loop, kwargs={"force_all": False}, daemon=True).start()
     return jsonify({"started": True})
 
 
+@app.route("/api/claim_all", methods=["POST"])
+def api_claim_all():
+    """Claim ALL selected POIs at once with no delay."""
+    threading.Thread(target=run_loop, kwargs={"force_all": True}, daemon=True).start()
+    return jsonify({"started": True})
+
+
+# ── ACTIVITY LOG ──────────────────────────────────────────────────────────────
+
 @app.route("/api/log")
 def api_log():
-    with state_lock:
-        return jsonify({"log": list(claim_log)})
+    with log_lock:
+        return jsonify({"log": list(activity_log)})
+
+
+# ── IMAGE UPLOAD ──────────────────────────────────────────────────────────────
+
+ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+@app.route("/api/images/<poi_key>/<slot>", methods=["POST"])
+def upload_image(poi_key: str, slot: str):
+    """Upload an image for a POI. slot = 'day' or 'night'."""
+    if slot not in ("day", "night"):
+        return jsonify({"error": "slot must be day or night"}), 400
+
+    with cache_lock:
+        poi = poi_cache.get(poi_key)
+    if not poi:
+        return jsonify({"error": "unknown poi key"}), 400
+
+    if "file" not in request.files:
+        return jsonify({"error": "no file"}), 400
+
+    f    = request.files["file"]
+    ext  = Path(f.filename).suffix.lower() if f.filename else ""
+    if ext not in ALLOWED_EXT:
+        return jsonify({"error": f"unsupported type {ext}"}), 400
+
+    folder = IMAGES_DIR / poi["name"] / slot
+    folder.mkdir(parents=True, exist_ok=True)
+
+    # Unique filename
+    fname = f"{int(time.time())}_{random.randint(1000,9999)}{ext}"
+    dest  = folder / fname
+    f.save(dest)
+
+    log.info(f"Uploaded image for {poi['name']}/{slot}: {fname}")
+    return jsonify({"file": fname, "slot": slot, "poi": poi["name"]})
+
+
+@app.route("/api/images/<poi_key>/<slot>/<filename>", methods=["DELETE"])
+def delete_image(poi_key: str, slot: str, filename: str):
+    """Delete a specific image."""
+    with cache_lock:
+        poi = poi_cache.get(poi_key)
+    if not poi:
+        return jsonify({"error": "unknown poi"}), 400
+
+    target = IMAGES_DIR / poi["name"] / slot / filename
+    if target.exists() and target.parent.resolve().is_relative_to(IMAGES_DIR.resolve()):
+        target.unlink()
+        return jsonify({"deleted": filename})
+    return jsonify({"error": "not found"}), 404
 
 
 @app.route("/api/status")
 def api_status():
-    job = scheduler.get_job("claim_cycle")
-    try:
-        nrt      = job.next_run_time if job else None
-        next_run = nrt.strftime("%H:%M:%S") if nrt else "—"
-    except AttributeError:
-        next_run = "—"
-
     with state_lock:
-        nk  = len(night_keys)
-        dk  = len(day_keys)
-        run = cycle_running
-
-    mode = current_mode()
-    return jsonify({
-        "mode":           mode,
-        "night_selected": nk,
-        "day_selected":   dk,
-        "next_run":       next_run,
-        "new_owner":      NEW_OWNER,
-        "interval":       current_interval(),
-        "night_interval": NIGHT_INTERVAL_MINUTES,
-        "day_interval":   DAY_INTERVAL_MINUTES,
-        "server_time":    datetime.now().strftime("%H:%M:%S"),
-        "running":        run,
-        "spread_min":     SPREAD_MIN,
-        "spread_max":     SPREAD_MAX,
-    })
+        return jsonify({
+            "mode":             current_mode(),
+            "night_start":      night_start,
+            "night_end":        night_end,
+            "server_time":      datetime.now().strftime("%H:%M:%S"),
+            "new_owner":        NEW_OWNER,
+            "night_selected":   len(night_keys),
+            "day_selected":     len(day_keys),
+            "loop_enabled":     loop_enabled,
+            "loop_interval":    loop_interval,
+            "use_local_images": use_local_images,
+            "running":          loop_running,
+        })
 
 
-# ── SCHEDULER ─────────────────────────────────────────────────────────────────
-# Single job fires every minute and internally checks which interval applies.
-# This avoids rescheduling complexity when mode switches at runtime.
-
-_last_fired: dict = {"night": None, "day": None}
-
-def smart_tick():
-    """Called every minute. Fires a cycle when the interval for current mode has elapsed."""
-    global _last_fired
-    mode     = current_mode()
-    interval = current_interval() * 60   # seconds
-    now      = time.monotonic()
-    last     = _last_fired.get(mode)
-
-    if last is None or (now - last) >= interval:
-        _last_fired[mode] = now
-        log.info(f"smart_tick: triggering {mode} cycle")
-        t = threading.Thread(target=claim_cycle, daemon=True)
-        t.start()
-    else:
-        remaining = interval - (now - last)
-        log.debug(f"smart_tick: {mode} — {remaining:.0f}s until next cycle")
-
-
-scheduler = BackgroundScheduler(timezone="Europe/Brussels")
-scheduler.add_job(
-    smart_tick,
-    trigger="interval",
-    minutes=1,
-    id="smart_tick",
-    replace_existing=True,
-)
-
+# ── STARTUP ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    with state_lock:
+        interval = loop_interval
+    reschedule(interval)
     scheduler.start()
-    log.info(f"Scheduler started — night every {NIGHT_INTERVAL_MINUTES}min, day every {DAY_INTERVAL_MINUTES}min")
+    log.info(f"Started. Owner='{NEW_OWNER}' interval={interval}min")
     app.run(host="0.0.0.0", port=5000, debug=False)

@@ -1,0 +1,9 @@
+{
+  "night_keys": [],
+  "day_keys": [],
+  "loop_enabled": false,
+  "loop_interval": 3,
+  "use_local_images": true,
+  "night_start": 1,
+  "night_end": 8
+}

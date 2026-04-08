@@ -3,668 +3,861 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>POI Claimer</title>
+<title>POI Manager</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@700;800&display=swap');
 
 :root {
-  --bg:      #0c0e14;
-  --surf:    #13161e;
-  --surf2:   #1a1e29;
-  --border:  #232838;
-  --accent:  #00e5a0;
-  --night:   #818cf8;
-  --day:     #fbbf24;
-  --danger:  #f87171;
-  --text:    #e2e8f0;
-  --muted:   #64748b;
-  --ok:      #00e5a0;
-  --warn:    #fbbf24;
-  --r:       6px;
+  --bg:     #0c0e14;
+  --surf:   #13161e;
+  --surf2:  #1c2030;
+  --bdr:    #252a3a;
+  --acc:    #00e5a0;
+  --night:  #818cf8;
+  --day:    #fbbf24;
+  --red:    #f87171;
+  --text:   #dde3f0;
+  --muted:  #5a6480;
+  --r:      7px;
+  --hh:     52px;   /* header height */
 }
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;display:flex;flex-direction:column;}
 
 /* ── HEADER ── */
-header {
-  background: var(--surf);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+header{
+  height:var(--hh);flex-shrink:0;
+  background:var(--surf);border-bottom:1px solid var(--bdr);
+  display:flex;align-items:center;gap:12px;padding:0 14px;
+  position:sticky;top:0;z-index:200;
 }
-header h1 {
-  font-family: 'Syne', sans-serif;
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--accent);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.hstats {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  align-items: center;
-  flex: 1;
-}
-.hstat { display: flex; flex-direction: column; gap: 1px; }
-.hstat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
-.hstat-value { font-size: 12px; font-weight: 600; }
-.hstat-value.night { color: var(--night); }
-.hstat-value.day   { color: var(--day);   }
-.hstat-value.ok    { color: var(--ok);    }
+header h1{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--acc);white-space:nowrap;}
+.hrow{display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;}
+.hstat{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.hstat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;}
+.hstat-v{font-size:12px;font-weight:600;white-space:nowrap;}
+.hstat-v.acc{color:var(--acc);}
+.hstat-v.night{color:var(--night);}
+.hstat-v.day{color:var(--day);}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;border:1px solid;}
+.pill.night{color:var(--night);border-color:var(--night);background:rgba(129,140,248,.1);}
+.pill.day  {color:var(--day);  border-color:var(--day);  background:rgba(251,191,36,.1);}
 
-.mode-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  border: 1px solid;
-}
-.mode-badge.night { color: var(--night); border-color: var(--night); background: rgba(129,140,248,.08); }
-.mode-badge.day   { color: var(--day);   border-color: var(--day);   background: rgba(251,191,36,.08);  }
+/* ── BUTTONS ── */
+.btn{padding:6px 13px;border-radius:var(--r);border:1px solid var(--bdr);background:transparent;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:all .13s;white-space:nowrap;flex-shrink:0;}
+.btn:hover{border-color:var(--acc);color:var(--acc);}
+.btn:active{transform:scale(.97);}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#000;font-weight:700;}
+.btn.primary:hover{background:#00ffb3;}
+.btn.danger{border-color:var(--red);color:var(--red);}
+.btn.danger:hover{background:var(--red);color:#000;}
+.btn:disabled{opacity:.35;pointer-events:none;}
+.btn.sm{padding:4px 9px;font-size:10px;}
 
-.btn {
-  padding: 7px 14px;
-  border-radius: var(--r);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all .15s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.btn:hover  { border-color: var(--accent); color: var(--accent); }
-.btn:active { transform: scale(.97); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
-.btn.primary:hover { background: #00ffb3; }
-.btn:disabled { opacity: .4; pointer-events: none; }
+/* ── TOGGLE ── */
+.toggle-wrap{display:flex;align-items:center;gap:7px;font-size:11px;}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-slider{position:absolute;inset:0;border-radius:20px;background:var(--bdr);cursor:pointer;transition:.2s;}
+.toggle-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;border-radius:50%;background:var(--muted);transition:.2s;}
+input:checked+.toggle-slider{background:var(--acc);}
+input:checked+.toggle-slider:before{transform:translateX(16px);background:#000;}
 
-/* ── TABS ── */
-.tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  background: var(--surf);
-  padding: 0 16px;
-  gap: 0;
-  overflow-x: auto;
-  flex-shrink: 0;
+/* ── MAIN LAYOUT ── */
+.layout{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:260px;flex-shrink:0;
+  border-right:1px solid var(--bdr);background:var(--surf);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-section{border-bottom:1px solid var(--bdr);padding:12px 14px;}
+.sidebar-section h3{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+
+/* Loop settings */
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.setting-row:last-child{margin-bottom:0;}
+.setting-label{font-size:11px;color:var(--text);}
+.setting-input{background:var(--bg);border:1px solid var(--bdr);border-radius:5px;padding:4px 8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:60px;text-align:right;}
+.setting-input:focus{outline:1px solid var(--acc);}
+
+/* Loop status */
+.loop-status{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.dot.on{background:var(--acc);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Sidebar log */
+.sidebar-log{flex:1;overflow-y:auto;padding:8px;}
+.log-entry{border-radius:5px;padding:6px 9px;margin-bottom:5px;font-size:10px;line-height:1.5;border:1px solid var(--bdr);background:var(--surf2);}
+.log-entry.ok   {border-color:#0f3d2a;}
+.log-entry.warn {border-color:#3d2a00;}
+.log-entry.error{border-color:#3d1010;}
+.log-entry.info {border-color:var(--bdr);}
+.log-entry.poll {border-color:var(--bdr);opacity:.6;}
+.log-head{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.log-msg{color:var(--text);flex:1;}
+.log-ts{color:var(--muted);font-size:9px;flex-shrink:0;}
+.log-det{color:var(--muted);margin-top:2px;}
+.c-ok  {color:var(--acc);}
+.c-warn{color:var(--day);}
+.c-err {color:var(--red);}
+
+/* ── MAIN CONTENT ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* TABS */
+.tabs{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr);padding:0 14px;gap:0;flex-shrink:0;overflow-x:auto;}
+.tab{padding:10px 16px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .13s;user-select:none;}
+.tab:hover{color:var(--text);}
+.tab.a-night{color:var(--night);border-bottom-color:var(--night);}
+.tab.a-day  {color:var(--day);  border-bottom-color:var(--day);}
+.tab .cnt{display:inline-block;margin-left:4px;padding:1px 5px;border-radius:9px;font-size:9px;background:var(--surf2);}
+.tab.a-night .cnt{background:rgba(129,140,248,.2);color:var(--night);}
+.tab.a-day   .cnt{background:rgba(251,191,36,.2); color:var(--day);}
+
+/* PANEL */
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.panel.active{display:flex;}
+
+/* TOOLBAR */
+.toolbar{padding:9px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--bdr);background:var(--surf);flex-shrink:0;}
+.toolbar input[type=text]{flex:1;min-width:100px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r);padding:5px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;}
+.toolbar input[type=text]:focus{outline:1px solid var(--acc);}
+.toolbar input::placeholder{color:var(--muted);}
+.sel-info{font-size:11px;color:var(--muted);white-space:nowrap;margin-left:auto;}
+.sel-info b{font-weight:700;}
+.last-sync{font-size:10px;color:var(--muted);}
+
+/* POI GRID */
+.poi-grid{overflow-y:auto;flex:1;padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:7px;align-content:start;}
+
+/* POI CARD */
+.poi-card{
+  border:1px solid var(--bdr);border-radius:var(--r);
+  padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s;
+  user-select:none;position:relative;background:var(--surf);
+}
+.poi-card:hover{border-color:var(--muted);}
+.poi-check{position:absolute;top:8px;right:10px;font-size:11px;font-weight:700;display:none;}
+.poi-name{font-size:12px;font-weight:600;line-height:1.3;padding-right:18px;color:var(--text);}
+.poi-gem{font-size:10px;color:var(--muted);margin-top:2px;}
+.poi-owner{font-size:10px;margin-top:4px;}
+.poi-owner.ours{color:var(--acc);}
+.poi-owner.theirs{color:var(--red);}
+.poi-bar{font-size:10px;margin-top:3px;letter-spacing:-1px;color:var(--muted);}
+.poi-imgs{font-size:9px;color:var(--muted);margin-top:4px;}
+
+.poi-card.sel-night{border-color:var(--night);background:rgba(129,140,248,.07);}
+.poi-card.sel-night .poi-check{display:block;color:var(--night);}
+.poi-card.sel-day  {border-color:var(--day);  background:rgba(251,191,36,.07);}
+.poi-card.sel-day   .poi-check{display:block;color:var(--day);}
+.poi-card.sel-both {border-color:var(--acc);  background:rgba(0,229,160,.07);}
+.poi-card.sel-both  .poi-check{display:block;color:var(--acc);}
+
+/* UPLOAD MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:20px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;}
+.modal h2{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text);}
+.modal-slot{margin-bottom:16px;}
+.modal-slot h3{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+.img-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.img-chip{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:5px;background:var(--surf2);border:1px solid var(--bdr);font-size:10px;}
+.img-chip button{background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;padding:0;line-height:1;}
+.upload-btn{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
+.upload-btn input{display:none;}
+.modal-close{margin-top:14px;}
+
+/* ── UPLOAD TAB ── */
+.tab.a-upload{color:var(--acc);border-bottom-color:var(--acc);}
+
+.upload-panel-list{overflow-y:auto;flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+
+.up-row{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;}
+.up-row-head{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;
+  user-select:none;transition:background .12s;
+}
+.up-row-head:hover{background:var(--surf2);}
+.up-row-name{font-size:12px;font-weight:600;flex:1;}
+.up-row-gem{font-size:10px;color:var(--muted);}
+.up-row-counts{font-size:10px;color:var(--muted);white-space:nowrap;}
+.up-row-counts .has{color:var(--acc);}
+.up-chevron{font-size:11px;color:var(--muted);transition:transform .15s;flex-shrink:0;}
+.up-row.open .up-chevron{transform:rotate(90deg);}
+
+.up-slots{display:none;border-top:1px solid var(--bdr);padding:12px 14px;gap:16px;display:none;grid-template-columns:1fr 1fr;}
+.up-row.open .up-slots{display:grid;}
+
+.up-slot h4{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+
+.dropzone{
+  border:1.5px dashed var(--bdr);border-radius:var(--r);padding:12px;
+  text-align:center;cursor:pointer;transition:border-color .15s,background .15s;
+  font-size:11px;color:var(--muted);margin-bottom:8px;
+}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--acc);background:rgba(0,229,160,.05);color:var(--acc);}
+.dropzone input{display:none;}
+
+.thumb-list{display:flex;flex-wrap:wrap;gap:6px;}
+.thumb{position:relative;width:60px;height:60px;border-radius:5px;overflow:hidden;border:1px solid var(--bdr);}
+.thumb img{width:100%;height:100%;object-fit:cover;}
+.thumb-del{
+  position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;
+  background:rgba(0,0,0,.7);border:none;color:var(--red);font-size:10px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.thumb-del:hover{background:var(--red);color:#000;}
+
+.upload-progress{font-size:10px;color:var(--acc);margin-top:4px;min-height:14px;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px;}
+
+@media(max-width:500px){
+  .up-slots{grid-template-columns:1fr;}
 }
 
-/* ── UPLOAD BAR ── */
-.upload-bar {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surf);
+/* MOBILE */
+@media(max-width:640px){
+  .sidebar{display:none;}
+  .sidebar.mob-open{display:flex;position:fixed;inset:0 0 0 0;z-index:300;width:100%;}
+  .mob-sidebar-btn{display:flex!important;}
+  header h1{font-size:13px;}
 }
-.upload-bar select,
-.upload-bar input[type="file"] {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  padding: 6px 8px;
-}
-.upload-bar select {
-  min-width: 200px;
-  max-width: 360px;
-}
-.upload-status {
-  font-size: 11px;
-  color: var(--muted);
-}
-.upload-status.ok { color: var(--ok); }
-.upload-status.err { color: var(--danger); }
-.tab {
-  padding: 10px 18px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-  transition: all .15s;
-  user-select: none;
-}
-.tab:hover { color: var(--text); }
-.tab.active-night { color: var(--night); border-bottom-color: var(--night); }
-.tab.active-day   { color: var(--day);   border-bottom-color: var(--day);   }
-.tab.active-log   { color: var(--accent); border-bottom-color: var(--accent); }
-.tab .cnt {
-  display: inline-block;
-  margin-left: 5px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-size: 10px;
-  background: var(--surf2);
-}
-.tab.active-night .cnt { background: rgba(129,140,248,.2); color: var(--night); }
-.tab.active-day   .cnt { background: rgba(251,191,36,.2);  color: var(--day);   }
-
-/* ── PANELS ── */
-.panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
-.panel.active { display: flex; }
-
-/* ── POI TOOLBAR ── */
-.toolbar {
-  padding: 10px 14px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-  background: var(--surf);
-  flex-shrink: 0;
-}
-.toolbar input {
-  flex: 1;
-  min-width: 120px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 6px 10px;
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-}
-.toolbar input:focus { outline: 1px solid var(--accent); }
-.toolbar input::placeholder { color: var(--muted); }
-.sel-info { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
-.sel-info b { font-weight: 700; }
-
-/* ── POI GRID ── */
-.poi-grid {
-  overflow-y: auto;
-  padding: 12px 14px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 7px;
-  align-content: start;
-  flex: 1;
-}
-
-/* ── POI CARD ── */
-.poi-card {
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 9px 11px;
-  cursor: pointer;
-  transition: border-color .12s, background .12s;
-  user-select: none;
-  position: relative;
-  background: var(--surf);
-}
-.poi-card:hover { border-color: var(--muted); }
-.poi-card .poi-name {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--text);
-  padding-right: 18px;
-}
-.poi-card .poi-gem {
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-.poi-card .check {
-  position: absolute;
-  top: 7px;
-  right: 9px;
-  font-size: 11px;
-  font-weight: 700;
-  display: none;
-}
-/* Night selected */
-.poi-card.sel-night {
-  border-color: var(--night);
-  background: rgba(129,140,248,.07);
-}
-.poi-card.sel-night .check { display: block; color: var(--night); }
-/* Day selected */
-.poi-card.sel-day {
-  border-color: var(--day);
-  background: rgba(251,191,36,.07);
-}
-.poi-card.sel-day .check { display: block; color: var(--day); }
-/* Both selected */
-.poi-card.sel-both {
-  border-color: var(--accent);
-  background: rgba(0,229,160,.07);
-}
-.poi-card.sel-both .check { display: block; color: var(--accent); }
-
-/* ── LOG PANEL ── */
-.log-list {
-  overflow-y: auto;
-  flex: 1;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.log-entry {
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 7px 10px;
-  font-size: 11px;
-  animation: fadeIn .25s ease;
-}
-@keyframes fadeIn { from { opacity:0; transform:translateY(-3px); } to { opacity:1; } }
-.log-entry.ok   { border-color: #0f3d2a; background: rgba(0,229,160,.04); }
-.log-entry.warn { border-color: #4a3000; background: rgba(251,191,36,.04); }
-.log-entry.error{ border-color: #4a1010; background: rgba(248,113,113,.04); }
-.log-entry.info { border-color: var(--border); background: var(--surf2); }
-.log-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.log-poi  { font-weight: 600; color: var(--text); }
-.log-ts   { font-size: 10px; color: var(--muted); flex-shrink: 0; }
-.log-det  { font-size: 10px; color: var(--muted); margin-top: 2px; }
-.c-ok    { color: var(--ok); }
-.c-warn  { color: var(--warn); }
-.c-err   { color: var(--danger); }
-.log-mode{ font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
-.log-mode.night { background: rgba(129,140,248,.15); color: var(--night); }
-.log-mode.day   { background: rgba(251,191,36,.15);  color: var(--day);   }
-
-.empty-msg { color: var(--muted); text-align: center; margin-top: 40px; font-size: 12px; line-height: 1.8; }
-
-/* ── COUNTDOWN ── */
-#countdown { font-variant-numeric: tabular-nums; }
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width: 3px; height: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-/* ── MOBILE ── */
-@media (max-width: 500px) {
-  header h1 { font-size: 14px; }
-  .hstats   { gap: 10px; }
-  .poi-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-  .tab      { padding: 10px 12px; font-size: 11px; }
-}
+.mob-sidebar-btn{display:none;}
 </style>
 </head>
 <body>
 
 <!-- HEADER -->
 <header>
-  <h1>◈ POI CLAIMER</h1>
-  <div class="hstats">
+  <h1>◈ POI MGR</h1>
+  <button class="btn sm mob-sidebar-btn" onclick="toggleSidebar()">☰ Settings</button>
+  <div class="hrow">
     <div class="hstat">
-      <span class="hstat-label">Mode</span>
-      <span class="hstat-value" id="h-mode">—</span>
+      <span class="hstat-l">Mode</span>
+      <span class="hstat-v" id="h-mode">—</span>
     </div>
     <div class="hstat">
-      <span class="hstat-label">Next cycle</span>
-      <span class="hstat-value ok" id="countdown">--:--</span>
+      <span class="hstat-l">Owner</span>
+      <span class="hstat-v acc">{{ new_owner }}</span>
     </div>
     <div class="hstat">
-      <span class="hstat-label">Night sel.</span>
-      <span class="hstat-value night" id="h-night">0</span>
+      <span class="hstat-l">Night sel.</span>
+      <span class="hstat-v night" id="h-night">0</span>
     </div>
     <div class="hstat">
-      <span class="hstat-label">Day sel.</span>
-      <span class="hstat-value day" id="h-day">0</span>
+      <span class="hstat-l">Day sel.</span>
+      <span class="hstat-v day" id="h-day">0</span>
     </div>
     <div class="hstat">
-      <span class="hstat-label">Time</span>
-      <span class="hstat-value" id="h-time">—</span>
+      <span class="hstat-l">Last sync</span>
+      <span class="hstat-v" id="h-sync">—</span>
     </div>
   </div>
-  <button class="btn primary" id="claim-btn" onclick="claimNow()">▶ Now</button>
+  <button class="btn primary" id="sync-btn" onclick="doSync()">⟳ Sync</button>
+  <button class="btn" id="now-btn" onclick="claimNow()" title="Claim 1 POI (loop logic)">▶ Claim 1</button>
+  <button class="btn danger" id="all-btn" onclick="claimAll()" title="Claim ALL selected POIs instantly">⚡ Claim all</button>
 </header>
 
-<!-- TABS -->
-<div class="tabs">
-  <div class="tab active-night" id="tab-night" onclick="switchTab('night')">
-    🌙 Night <span class="cnt" id="tab-night-cnt">0</span>
-  </div>
-  <div class="tab" id="tab-day" onclick="switchTab('day')">
-    ☀ Day <span class="cnt" id="tab-day-cnt">0</span>
-  </div>
-  <div class="tab" id="tab-log" onclick="switchTab('log')">
-    Log <span class="cnt" id="tab-log-cnt">0</span>
-  </div>
-</div>
+<!-- LAYOUT -->
+<div class="layout">
 
-<!-- UPLOAD -->
-<div class="upload-bar">
-  <span style="font-size:11px;color:var(--muted)">Upload image:</span>
-  <select id="upload-poi-key" aria-label="POI">
-    {% for poi in pois %}
-    <option value="{{ poi[1] }}">{{ poi[2] }}</option>
-    {% endfor %}
-  </select>
-  <select id="upload-mode" aria-label="Image mode">
-    <option value="day">Day</option>
-    <option value="night">Night</option>
-  </select>
-  <input type="file" id="upload-file" aria-label="Image file" accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
-  <button class="btn" id="upload-btn" onclick="uploadImage()">Upload</button>
-  <span class="upload-status" id="upload-status">Idle</span>
-</div>
-
-<!-- NIGHT PANEL -->
-<div class="panel active" id="panel-night">
-  <div class="toolbar">
-    <input type="text" id="search-night" placeholder="Search…" oninput="filterGrid('night')">
-    <button class="btn" onclick="selectFiltered('night', true)">All</button>
-    <button class="btn" onclick="selectFiltered('night', false)">None</button>
-    <span class="sel-info"><b id="night-count">0</b> / {{ pois|length }}</span>
-  </div>
-  <div class="poi-grid" id="grid-night">
-    {% for poi in pois %}
-    <div class="poi-card"
-         data-key="{{ poi[1] }}"
-         data-name="{{ poi[2]|lower }}"
-         data-gem="{{ poi[5]|lower }}"
-         onclick="toggleCard(this, 'night')">
-      <span class="check">✓</span>
-      <div class="poi-name">{{ poi[2] }}</div>
-      <div class="poi-gem">{{ poi[5] }}</div>
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <h3>Loop</h3>
+      <div class="setting-row">
+        <span class="setting-label">Enabled</span>
+        <label class="toggle"><input type="checkbox" id="loop-toggle" onchange="setSetting('enabled',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Interval (min)</span>
+        <input class="setting-input" type="number" id="loop-interval" min="1" max="60" value="4"
+               onchange="setSetting('interval', parseInt(this.value))">
+      </div>
+      <div class="loop-status">
+        <span class="dot" id="loop-dot"></span>
+        <span id="loop-status-txt">idle</span>
+      </div>
     </div>
-    {% endfor %}
-  </div>
-</div>
 
-<!-- DAY PANEL -->
-<div class="panel" id="panel-day">
-  <div class="toolbar">
-    <input type="text" id="search-day" placeholder="Search…" oninput="filterGrid('day')">
-    <button class="btn" onclick="selectFiltered('day', true)">All</button>
-    <button class="btn" onclick="selectFiltered('day', false)">None</button>
-    <span class="sel-info"><b id="day-count">0</b> / {{ pois|length }}</span>
-  </div>
-  <div class="poi-grid" id="grid-day">
-    {% for poi in pois %}
-    <div class="poi-card"
-         data-key="{{ poi[1] }}"
-         data-name="{{ poi[2]|lower }}"
-         data-gem="{{ poi[5]|lower }}"
-         onclick="toggleCard(this, 'day')">
-      <span class="check">✓</span>
-      <div class="poi-name">{{ poi[2] }}</div>
-      <div class="poi-gem">{{ poi[5] }}</div>
+    <div class="sidebar-section">
+      <h3>Images</h3>
+      <div class="setting-row">
+        <span class="setting-label">Use local images</span>
+        <label class="toggle"><input type="checkbox" id="local-toggle" checked onchange="setSetting('use_local_images',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
     </div>
-    {% endfor %}
+
+    <div class="sidebar-section">
+      <h3>Night window</h3>
+      <div class="setting-row">
+        <span class="setting-label">Start (hour)</span>
+        <input class="setting-input" type="number" id="night-start" min="0" max="23" value="1"
+               onchange="setSetting('night_start', parseInt(this.value))">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">End (hour)</span>
+        <input class="setting-input" type="number" id="night-end" min="0" max="23" value="8"
+               onchange="setSetting('night_end', parseInt(this.value))">
+      </div>
+    </div>
+
+    <div class="sidebar-section" style="border-bottom:none;">
+      <h3>Activity</h3>
+    </div>
+    <div class="sidebar-log" id="sidebar-log">
+      <p style="color:var(--muted);font-size:11px;text-align:center;margin-top:20px;">No activity yet.</p>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="tabs">
+      <div class="tab a-night" id="tab-night" onclick="switchTab('night')">
+        🌙 Night <span class="cnt" id="cnt-night">0</span>
+      </div>
+      <div class="tab" id="tab-day" onclick="switchTab('day')">
+        ☀ Day <span class="cnt" id="cnt-day">0</span>
+      </div>
+      <div class="tab" id="tab-upload" onclick="switchTab('upload')">
+        📷 Images
+      </div>
+    </div>
+
+    <!-- NIGHT PANEL -->
+    <div class="panel active" id="panel-night">
+      <div class="toolbar">
+        <input type="text" id="search-night" placeholder="Search POIs…" oninput="filterGrid('night')">
+        <button class="btn sm" onclick="selAll('night',true)">All</button>
+        <button class="btn sm" onclick="selAll('night',false)">None</button>
+        <span class="sel-info"><b id="night-count">0</b> selected</span>
+      </div>
+      <div class="poi-grid" id="grid-night"></div>
+    </div>
+
+    <!-- DAY PANEL -->
+    <div class="panel" id="panel-day">
+      <div class="toolbar">
+        <input type="text" id="search-day" placeholder="Search POIs…" oninput="filterGrid('day')">
+        <button class="btn sm" onclick="selAll('day',true)">All</button>
+        <button class="btn sm" onclick="selAll('day',false)">None</button>
+        <span class="sel-info"><b id="day-count">0</b> selected</span>
+      </div>
+      <div class="poi-grid" id="grid-day"></div>
+    </div>
+
+    <!-- UPLOAD PANEL -->
+    <div class="panel" id="panel-upload">
+      <div class="toolbar">
+        <input type="text" id="search-upload" placeholder="Search POIs…" oninput="filterUpload()">
+        <span class="sel-info" style="margin-left:auto;font-size:10px;" id="upload-info">Click a POI to expand</span>
+      </div>
+      <div class="upload-panel-list" id="upload-list"></div>
+    </div>
   </div>
 </div>
 
-<!-- LOG PANEL -->
-<div class="panel" id="panel-log">
-  <div class="toolbar">
-    <span style="color:var(--muted);font-size:11px;">Activity log — updates every 3s</span>
-    <button class="btn" style="margin-left:auto" onclick="clearLog()">Clear</button>
-  </div>
-  <div class="log-list" id="log-list">
-    <p class="empty-msg">No activity yet.<br>Select POIs and trigger a cycle.</p>
+<!-- IMAGE UPLOAD MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2 id="modal-title">Images for —</h2>
+    <div id="modal-body"></div>
+    <button class="btn modal-close" onclick="closeModal()">Close</button>
   </div>
 </div>
 
 <script>
-  // ── STATE ──────────────────────────────────────────────────────────────────
-  const nightSel = new Set();
-  const daySel   = new Set();
-  let currentTab = 'night';
-  let nextCycleAt = null;
-  let lastLogCount = 0;
+const NEW_OWNER = {{ new_owner|tojson }};
 
-  // ── TABS ───────────────────────────────────────────────────────────────────
-  function switchTab(tab) {
-    currentTab = tab;
-    ['night','day','log'].forEach(t => {
-      document.getElementById('panel-' + t).classList.toggle('active', t === tab);
-      const el = document.getElementById('tab-' + t);
-      el.className = 'tab';
-      if (t === tab) el.classList.add('active-' + (t === 'log' ? 'log' : t));
-    });
-  }
+// ── STATE ──────────────────────────────────────────────────────────────────
+const nightSel = new Set();
+const daySel   = new Set();
+let allPOIs    = [];      // [{key, name, gemeente, owner, bar, ours, night, day, images}]
+let currentTab = 'night';
+let logCount   = 0;
+let modalKey   = null;
 
-  // ── CARD TOGGLE ────────────────────────────────────────────────────────────
-  function toggleCard(card, mode) {
-    const key = card.dataset.key;
-    const set  = mode === 'night' ? nightSel : daySel;
-    const sel  = !isSelected(card, mode);
-    sel ? set.add(key) : set.delete(key);
-    updateCardClasses(card);
-    updateCounts();
-    fetch('/api/select', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({key, mode, selected: sel})
-    });
-  }
+// ── SIDEBAR MOBILE ─────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('mob-open');
+}
 
-  function isSelected(card, mode) {
-    const key = card.dataset.key;
-    return mode === 'night' ? nightSel.has(key) : daySel.has(key);
-  }
+// ── TABS ───────────────────────────────────────────────────────────────────
+function switchTab(t) {
+  currentTab = t;
+  ['night','day','upload'].forEach(x => {
+    document.getElementById('panel-' + x).classList.toggle('active', x === t);
+    const el = document.getElementById('tab-' + x);
+    el.className = 'tab';
+    if (x === t) {
+      if (x === 'upload') el.classList.add('a-upload');
+      else el.classList.add('a-' + x);
+    }
+  });
+  if (t === 'upload') renderUploadPanel();
+}
 
-  function updateCardClasses(card) {
-    const key = card.dataset.key;
-    const n = nightSel.has(key);
-    const d = daySel.has(key);
-    card.classList.remove('sel-night','sel-day','sel-both');
-    if (n && d) card.classList.add('sel-both');
-    else if (n) card.classList.add('sel-night');
-    else if (d) card.classList.add('sel-day');
-  }
-
-  function updateCounts() {
-    document.getElementById('night-count').textContent = nightSel.size;
-    document.getElementById('day-count').textContent   = daySel.size;
-    document.getElementById('tab-night-cnt').textContent = nightSel.size;
-    document.getElementById('tab-day-cnt').textContent   = daySel.size;
-    document.getElementById('h-night').textContent = nightSel.size;
-    document.getElementById('h-day').textContent   = daySel.size;
-  }
-
-  // ── SELECT ALL (filtered) ──────────────────────────────────────────────────
-  function selectFiltered(mode, sel) {
+// ── RENDER POI GRIDS ───────────────────────────────────────────────────────
+function renderGrids() {
+  ['night','day'].forEach(mode => {
     const grid = document.getElementById('grid-' + mode);
-    const set  = mode === 'night' ? nightSel : daySel;
-    const visible = [...grid.querySelectorAll('.poi-card')].filter(c => c.style.display !== 'none');
-    const keys = visible.map(c => c.dataset.key);
+    const sel  = mode === 'night' ? nightSel : daySel;
+    grid.innerHTML = allPOIs.map(p => {
+      const selClass = (nightSel.has(p.key) && daySel.has(p.key)) ? 'sel-both'
+                     : (nightSel.has(p.key) ? 'sel-night'
+                     : (daySel.has(p.key)   ? 'sel-day' : ''));
+      const ownerClass = p.ours ? 'ours' : 'theirs';
+      const dayImgs   = (p.images?.day   || []).length;
+      const nightImgs = (p.images?.night || []).length;
+      const imgText   = dayImgs || nightImgs
+        ? `☀${dayImgs} 🌙${nightImgs}`
+        : 'no local images';
+      return `<div class="poi-card ${selClass}"
+                   data-key="${p.key}"
+                   data-name="${p.name.toLowerCase()}"
+                   data-gem="${p.gemeente.toLowerCase()}"
+                   onclick="toggleCard(this,'${mode}')">
+        <span class="poi-check">✓</span>
+        <div class="poi-name">${p.name}</div>
+        <div class="poi-gem">${p.gemeente}</div>
+        <div class="poi-owner ${ownerClass}">${p.owner || '—'}</div>
+        <div class="poi-bar">${p.bar || ''}</div>
+        <div class="poi-imgs" onclick="event.stopPropagation();openModal('${p.key}')"
+             style="cursor:pointer;text-decoration:underline dotted;">
+          📷 ${imgText}
+        </div>
+      </div>`;
+    }).join('');
+  });
+  updateCounts();
+}
 
-    visible.forEach(c => {
-      sel ? set.add(c.dataset.key) : set.delete(c.dataset.key);
-      updateCardClasses(c);
-      // Also sync the other grid's card appearance
-      const other = document.querySelector(`#grid-${mode === 'night' ? 'day' : 'night'} [data-key="${c.dataset.key}"]`);
-      if (other) updateCardClasses(other);
-    });
-    updateCounts();
-    fetch('/api/select_all', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({keys, mode, selected: sel})
-    });
+function updateCardClasses(key) {
+  const n = nightSel.has(key), d = daySel.has(key);
+  const cls = (n && d) ? 'sel-both' : n ? 'sel-night' : d ? 'sel-day' : '';
+  document.querySelectorAll(`.poi-card[data-key="${key}"]`).forEach(card => {
+    card.classList.remove('sel-night','sel-day','sel-both');
+    if (cls) card.classList.add(cls);
+  });
+}
+
+function updateCounts() {
+  document.getElementById('night-count').textContent = nightSel.size;
+  document.getElementById('day-count').textContent   = daySel.size;
+  document.getElementById('cnt-night').textContent   = nightSel.size;
+  document.getElementById('cnt-day').textContent     = daySel.size;
+  document.getElementById('h-night').textContent     = nightSel.size;
+  document.getElementById('h-day').textContent       = daySel.size;
+}
+
+// ── TOGGLE CARD ────────────────────────────────────────────────────────────
+function toggleCard(card, mode) {
+  const key = card.dataset.key;
+  const set  = mode === 'night' ? nightSel : daySel;
+  const sel  = !set.has(key);
+  sel ? set.add(key) : set.delete(key);
+  updateCardClasses(key);
+  updateCounts();
+  fetch('/api/select', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({key, mode, selected: sel})
+  });
+}
+
+function selAll(mode, sel) {
+  const grid = document.getElementById('grid-' + mode);
+  const set  = mode === 'night' ? nightSel : daySel;
+  const visible = [...grid.querySelectorAll('.poi-card')].filter(c => c.style.display !== 'none');
+  const keys = visible.map(c => c.dataset.key);
+  keys.forEach(k => sel ? set.add(k) : set.delete(k));
+  visible.forEach(c => updateCardClasses(c.dataset.key));
+  updateCounts();
+  fetch('/api/select_all', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({keys, mode, selected: sel})
+  });
+}
+
+// ── SEARCH ─────────────────────────────────────────────────────────────────
+function filterGrid(mode) {
+  const q = document.getElementById('search-' + mode).value.toLowerCase();
+  document.querySelectorAll(`#grid-${mode} .poi-card`).forEach(c => {
+    c.style.display = (!q || c.dataset.name.includes(q) || c.dataset.gem.includes(q)) ? '' : 'none';
+  });
+}
+
+// ── SYNC ───────────────────────────────────────────────────────────────────
+async function doSync() {
+  document.getElementById('sync-btn').disabled = true;
+  document.getElementById('h-sync').textContent = '…';
+  try {
+    const d = await fetch('/api/sync').then(r => r.json());
+    if (d.error) { alert('Sync failed: ' + d.error); return; }
+    applyPOIData(d);
+  } catch(e) {
+    alert('Sync error: ' + e);
+  } finally {
+    document.getElementById('sync-btn').disabled = false;
   }
+}
 
-  // ── SEARCH / FILTER ────────────────────────────────────────────────────────
-  function filterGrid(mode) {
-    const q = document.getElementById('search-' + mode).value.toLowerCase().trim();
-    document.querySelectorAll(`#grid-${mode} .poi-card`).forEach(c => {
-      const match = !q || c.dataset.name.includes(q) || c.dataset.gem.includes(q);
-      c.style.display = match ? '' : 'none';
-    });
-  }
+function applyPOIData(d) {
+  allPOIs = d.pois;
+  nightSel.clear(); daySel.clear();
+  allPOIs.forEach(p => {
+    if (p.night) nightSel.add(p.key);
+    if (p.day)   daySel.add(p.key);
+  });
+  renderGrids();
+  if (currentTab === 'upload') renderUploadPanel();
+  document.getElementById('h-sync').textContent = d.ts || '—';
+}
 
-  // ── CLAIM NOW ──────────────────────────────────────────────────────────────
-  function claimNow() {
-    document.getElementById('claim-btn').disabled = true;
-    fetch('/api/claim_now', {method:'POST'})
-      .finally(() => setTimeout(() => {
-        document.getElementById('claim-btn').disabled = false;
-      }, 3000));
-    nextCycleAt = Date.now() + currentInterval * 1000;
-  }
+// ── CLAIM ──────────────────────────────────────────────────────────────────
+async function claimNow() {
+  document.getElementById('now-btn').disabled = true;
+  await fetch('/api/claim_now', {method:'POST'});
+  setTimeout(() => document.getElementById('now-btn').disabled = false, 3000);
+}
 
-  // ── CLEAR LOG ──────────────────────────────────────────────────────────────
-  function clearLog() {
-    document.getElementById('log-list').innerHTML = '<p class="empty-msg">Log cleared.</p>';
-    lastLogCount = 0;
-    document.getElementById('tab-log-cnt').textContent = '0';
-  }
+async function claimAll() {
+  if (!confirm(`Claim ALL selected POIs instantly?`)) return;
+  document.getElementById('all-btn').disabled = true;
+  await fetch('/api/claim_all', {method:'POST'});
+  setTimeout(() => document.getElementById('all-btn').disabled = false, 5000);
+}
 
-  // ── STATUS POLLING ─────────────────────────────────────────────────────────
-  let currentMode     = 'night';
-  let currentInterval = {{ night_interval }} * 60;
+// ── LOOP SETTINGS ──────────────────────────────────────────────────────────
+async function setSetting(key, value) {
+  await fetch('/api/loop', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({[key]: value})
+  });
+}
 
-  function setUploadStatus(text, cls = '') {
-    const el = document.getElementById('upload-status');
-    el.textContent = text;
-    el.className = 'upload-status' + (cls ? ' ' + cls : '');
-  }
+async function pollStatus() {
+  try {
+    const d = await fetch('/api/status').then(r => r.json());
+    document.getElementById('loop-toggle').checked      = d.loop_enabled;
+    document.getElementById('local-toggle').checked     = d.use_local_images;
+    document.getElementById('loop-interval').value      = d.loop_interval;
+    document.getElementById('night-start').value        = d.night_start;
+    document.getElementById('night-end').value          = d.night_end;
+    document.getElementById('loop-dot').className       = 'dot' + (d.running ? ' on' : '');
+    document.getElementById('loop-status-txt').textContent =
+      d.running ? 'running…' : d.loop_enabled ? `every ${d.loop_interval}min` : 'disabled';
 
-  async function uploadImage() {
-    const key = document.getElementById('upload-poi-key').value;
-    const mode = document.getElementById('upload-mode').value;
-    const fileEl = document.getElementById('upload-file');
-    const btn = document.getElementById('upload-btn');
-    const file = fileEl.files[0];
+    const modeEl = document.getElementById('h-mode');
+    modeEl.innerHTML = d.mode === 'night'
+      ? '<span class="pill night">🌙 NIGHT</span>'
+      : '<span class="pill day">☀ DAY</span>';
+  } catch {}
+}
 
-    if (!key) {
-      setUploadStatus('Pick a POI first', 'err');
+// ── ACTIVITY LOG ───────────────────────────────────────────────────────────
+async function pollLog() {
+  try {
+    const d = await fetch('/api/log').then(r => r.json());
+    if (d.log.length === logCount) return;
+    logCount = d.log.length;
+    const el = document.getElementById('sidebar-log');
+    if (!d.log.length) {
+      el.innerHTML = '<p style="color:var(--muted);font-size:11px;text-align:center;margin-top:20px;">No activity yet.</p>';
       return;
     }
-    if (!file) {
-      setUploadStatus('Choose an image file', 'err');
-      return;
+    el.innerHTML = d.log.map(e => {
+      const typeMap = {
+        claim_ok: 'ok', claim_warn: 'warn', error: 'error',
+        poll: 'poll', ok: 'ok', info: 'info'
+      };
+      const cls = typeMap[e.type] || 'info';
+      let det = '';
+      if (e.poi) det = `<div class="log-det">${e.poi} ← ${e.prev_owner||''} · img:${e.img||'?'}</div>`;
+      return `<div class="log-entry ${cls}">
+        <div class="log-head">
+          <span class="log-msg">${e.msg||''}</span>
+          <span class="log-ts">${e.ts||''}</span>
+        </div>${det}
+      </div>`;
+    }).join('');
+
+    // Refresh POI data after a claim to show updated owners
+    const hasClaim = d.log.some(e => e.type === 'claim_ok' || e.type === 'claim_warn');
+    if (hasClaim) doSync();
+  } catch {}
+}
+
+// ── IMAGE MODAL ────────────────────────────────────────────────────────────
+function openModal(key) {
+  modalKey = key;
+  const poi = allPOIs.find(p => p.key === key);
+  if (!poi) return;
+  document.getElementById('modal-title').textContent = `Images — ${poi.name}`;
+  renderModal(poi);
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+function renderModal(poi) {
+  const imgs = poi.images || {day:[], night:[]};
+  let html = '';
+  for (const slot of ['day','night']) {
+    const label = slot === 'day' ? '☀ Day' : '🌙 Night';
+    const list  = imgs[slot] || [];
+    html += `<div class="modal-slot">
+      <h3>${label}</h3>
+      <div class="img-list" id="imglist-${slot}">
+        ${list.map(f => `
+          <div class="img-chip">
+            <span>${f}</span>
+            <button onclick="deleteImg('${poi.key}','${slot}','${f}')" title="Delete">✕</button>
+          </div>`).join('') || '<span style="color:var(--muted);font-size:10px;">No images</span>'}
+      </div>
+      <label class="upload-btn btn sm">
+        + Upload
+        <input type="file" accept="image/*" multiple onchange="uploadImg(event,'${poi.key}','${slot}')">
+      </label>
+    </div>`;
+  }
+  document.getElementById('modal-body').innerHTML = html;
+}
+
+function closeModal() {
+  document.getElementById('modal-bg').classList.remove('open');
+  modalKey = null;
+}
+
+async function uploadImg(event, key, slot) {
+  const files = event.target.files;
+  if (!files.length) return;
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch(`/api/images/${key}/${slot}`, {method:'POST', body: fd});
+    if (!r.ok) { alert('Upload failed'); continue; }
+  }
+  // Refresh
+  const d = await fetch('/api/cache').then(r => r.json());
+  const poi = d.pois.find(p => p.key === key);
+  if (poi) {
+    const local = allPOIs.find(p => p.key === key);
+    if (local) { local.images = poi.images; }
+    renderModal(poi);
+    renderGrids();
+  }
+}
+
+async function deleteImg(key, slot, filename) {
+  if (!confirm(`Delete ${filename}?`)) return;
+  await fetch(`/api/images/${key}/${slot}/${filename}`, {method:'DELETE'});
+  const d = await fetch('/api/cache').then(r => r.json());
+  const poi = d.pois.find(p => p.key === key);
+  if (poi) {
+    const local = allPOIs.find(p => p.key === key);
+    if (local) local.images = poi.images;
+    renderModal(poi);
+    renderGrids();
+  }
+}
+
+// ── UPLOAD PANEL ───────────────────────────────────────────────────────────
+
+let uploadOpenKey = null;  // which POI row is expanded
+
+function renderUploadPanel() {
+  const list = document.getElementById('upload-list');
+  if (!allPOIs.length) {
+    list.innerHTML = '<p style="color:var(--muted);text-align:center;margin-top:30px;font-size:12px;">Sync POIs first using the ⟳ button.</p>';
+    return;
+  }
+  list.innerHTML = allPOIs.map(p => {
+    const di = (p.images?.day   || []).length;
+    const ni = (p.images?.night || []).length;
+    const countHtml =
+      `<span class="up-row-counts">` +
+      `☀ <span class="${di ? 'has' : ''}">${di}</span>` +
+      ` 🌙 <span class="${ni ? 'has' : ''}">${ni}</span>` +
+      `</span>`;
+    const isOpen = p.key === uploadOpenKey;
+    return `
+      <div class="up-row ${isOpen ? 'open' : ''}" id="uprow-${p.key}" data-key="${p.key}" data-name="${p.name.toLowerCase()}" data-gem="${p.gemeente.toLowerCase()}">
+        <div class="up-row-head" onclick="toggleUploadRow('${p.key}')">
+          <span class="up-row-name">${p.name}</span>
+          <span class="up-row-gem">${p.gemeente}</span>
+          ${countHtml}
+          <span class="up-chevron">›</span>
+        </div>
+        <div class="up-slots">
+          ${buildSlot(p, 'day')}
+          ${buildSlot(p, 'night')}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Re-attach drag events for open row
+  if (uploadOpenKey) attachDrag(uploadOpenKey);
+}
+
+function buildSlot(p, slot) {
+  const label = slot === 'day' ? '☀ Day' : '🌙 Night';
+  const imgs  = (p.images?.[slot] || []);
+  const thumbs = imgs.map(f => thumbHTML(p.key, slot, f)).join('');
+  return `
+    <div class="up-slot">
+      <h4>${label}</h4>
+      <div class="dropzone" id="dz-${p.key}-${slot}"
+           ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)"
+           ondrop="dzDrop(event,'${p.key}','${slot}')"
+           onclick="document.getElementById('fi-${p.key}-${slot}').click()">
+        <input type="file" id="fi-${p.key}-${slot}" accept="image/*" multiple
+               onchange="handleFileInput(event,'${p.key}','${slot}')">
+        Drop images here or click to browse
+      </div>
+      <div class="upload-progress" id="prog-${p.key}-${slot}"></div>
+      <div class="thumb-list" id="thumbs-${p.key}-${slot}">${thumbs}</div>
+    </div>`;
+}
+
+function thumbHTML(key, slot, filename) {
+  // Use a data URL for preview isn't possible without fetching; show filename pill instead.
+  // For a richer preview we'd need a /api/images/serve endpoint — keep it simple.
+  return `
+    <div class="thumb" title="${filename}">
+      <div style="width:100%;height:100%;background:var(--surf2);display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:9px;color:var(--muted);word-break:break-all;padding:3px;text-align:center;">${filename.slice(0,12)}</span>
+      </div>
+      <button class="thumb-del" onclick="deleteUploadImg('${key}','${slot}','${filename}')" title="Delete">✕</button>
+    </div>`;
+}
+
+function toggleUploadRow(key) {
+  uploadOpenKey = uploadOpenKey === key ? null : key;
+  renderUploadPanel();
+  if (uploadOpenKey) {
+    // Scroll the row into view
+    const el = document.getElementById('uprow-' + key);
+    if (el) el.scrollIntoView({behavior:'smooth', block:'nearest'});
+    attachDrag(key);
+  }
+}
+
+function attachDrag(key) {
+  // Drag-over highlight — already handled via inline handlers
+}
+
+function filterUpload() {
+  const q = document.getElementById('search-upload').value.toLowerCase();
+  document.querySelectorAll('#upload-list .up-row').forEach(r => {
+    const match = !q || r.dataset.name.includes(q) || r.dataset.gem.includes(q);
+    r.style.display = match ? '' : 'none';
+  });
+}
+
+function dzDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function dzDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function dzDrop(e, key, slot) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  if (files.length) uploadFiles(key, slot, files);
+}
+function handleFileInput(e, key, slot) {
+  const files = [...e.target.files];
+  if (files.length) uploadFiles(key, slot, files);
+  e.target.value = '';  // reset so same file can be re-selected
+}
+
+async function uploadFiles(key, slot, files) {
+  const prog = document.getElementById(`prog-${key}-${slot}`);
+  if (prog) prog.textContent = `Uploading ${files.length} file(s)…`;
+  let ok = 0;
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch(`/api/images/${key}/${slot}`, {method:'POST', body: fd});
+      if (r.ok) ok++;
+      else { const d = await r.json(); console.error('Upload error:', d.error); }
+    } catch(e) { console.error(e); }
+  }
+  if (prog) prog.textContent = ok === files.length ? `✓ ${ok} uploaded` : `⚠ ${ok}/${files.length} uploaded`;
+  setTimeout(() => { if (prog) prog.textContent = ''; }, 3000);
+
+  // Refresh image counts
+  await refreshImages(key);
+}
+
+async function deleteUploadImg(key, slot, filename) {
+  if (!confirm(`Delete ${filename}?`)) return;
+  await fetch(`/api/images/${key}/${slot}/${filename}`, {method:'DELETE'});
+  await refreshImages(key);
+}
+
+async function refreshImages(key) {
+  // Fetch updated cache and patch allPOIs
+  const d = await fetch('/api/cache').then(r => r.json()).catch(() => null);
+  if (!d) return;
+  const fresh = d.pois.find(p => p.key === key);
+  if (fresh) {
+    const local = allPOIs.find(p => p.key === key);
+    if (local) local.images = fresh.images;
+  }
+  // Re-render just this row's slots if it's open
+  if (uploadOpenKey === key) {
+    const poi = allPOIs.find(p => p.key === key);
+    if (!poi) return;
+    const slots = document.querySelector(`#uprow-${key} .up-slots`);
+    if (slots) {
+      slots.innerHTML = buildSlot(poi, 'day') + buildSlot(poi, 'night');
+      attachDrag(key);
     }
-
-    btn.disabled = true;
-    setUploadStatus('Uploading...');
-
-    const form = new FormData();
-    form.append('key', key);
-    form.append('mode', mode);
-    form.append('image', file);
-
-    try {
-      const resp = await fetch('/api/upload_image', { method: 'POST', body: form });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'upload failed');
-      fileEl.value = '';
-      setUploadStatus(`Saved for ${data.poi} (${data.mode})`, 'ok');
-    } catch (err) {
-      setUploadStatus(err.message || 'upload failed', 'err');
-    } finally {
-      btn.disabled = false;
+    // Update count badge in header
+    const cnt = document.querySelector(`#uprow-${key} .up-row-counts`);
+    if (cnt) {
+      const di = (poi.images?.day   || []).length;
+      const ni = (poi.images?.night || []).length;
+      cnt.innerHTML =
+        `☀ <span class="${di ? 'has' : ''}">${di}</span>` +
+        ` 🌙 <span class="${ni ? 'has' : ''}">${ni}</span>`;
     }
   }
+  // Also refresh grids so image counts on POI cards stay accurate
+  renderGrids();
+}
 
-  async function pollStatus() {
-    try {
-      const d = await fetch('/api/status').then(r => r.json());
-      currentMode     = d.mode;
-      currentInterval = d.interval * 60;
+// ── INIT ───────────────────────────────────────────────────────────────────
+(async function init() {
+  // Load cached data first (instant), then full sync
+  try {
+    const cached = await fetch('/api/cache').then(r => r.json());
+    if (cached.pois.length) applyPOIData(cached);
+  } catch {}
 
-      const badge = currentMode === 'night'
-        ? '<span class="mode-badge night">🌙 NIGHT</span>'
-        : '<span class="mode-badge day">☀ DAY</span>';
-      document.getElementById('h-mode').innerHTML = badge;
-      document.getElementById('h-time').textContent = d.server_time;
+  await doSync();
+  await pollStatus();
+  await pollLog();
 
-      if (d.next_run && d.next_run !== '—' && !nextCycleAt) {
-        const parts = d.next_run.split(':').map(Number);
-        const t = new Date();
-        t.setHours(parts[0], parts[1], parts[2], 0);
-        if (t <= new Date()) t.setDate(t.getDate() + 1);
-        nextCycleAt = t.getTime();
-      }
-    } catch {}
-  }
+  setInterval(pollLog,    3000);
+  setInterval(pollStatus, 7000);
 
-  // ── LOG POLLING ────────────────────────────────────────────────────────────
-  async function pollLog() {
-    try {
-      const d = await fetch('/api/log').then(r => r.json());
-      const entries = d.log;
-      if (entries.length === lastLogCount) return;
-      lastLogCount = entries.length;
-      document.getElementById('tab-log-cnt').textContent = Math.min(entries.length, 99);
-
-      if (!entries.length) {
-        document.getElementById('log-list').innerHTML = '<p class="empty-msg">No activity yet.</p>';
-        return;
-      }
-      document.getElementById('log-list').innerHTML = entries.map(e => {
-        const modeTag = e.mode
-          ? `<span class="log-mode ${e.mode}">${e.mode === 'night' ? '🌙' : '☀'}</span>` : '';
-        let det = '';
-        if (e.status === 'ok')    det = `<span class="c-ok">✓ claimed</span> · img: ${e.img_source} · ${e.http}`;
-        else if (e.status==='warn') det = `<span class="c-warn">⚠ cached/warn</span> · ${e.http}`;
-        else if (e.status==='error') det = `<span class="c-err">✗ ${e.error || e.http}</span>`;
-        return `<div class="log-entry ${e.status}">
-          <div class="log-head">
-            <span class="log-poi">${e.poi}${modeTag}</span>
-            <span class="log-ts">${e.ts}</span>
-          </div>
-          ${det ? `<div class="log-det">${det}</div>` : ''}
-        </div>`;
-      }).join('');
-    } catch {}
-  }
-
-  // ── COUNTDOWN ──────────────────────────────────────────────────────────────
-  function tickCountdown() {
-    if (!nextCycleAt) return;
-    const diff = Math.max(0, nextCycleAt - Date.now());
-    if (diff === 0) nextCycleAt = Date.now() + currentInterval * 1000;
-    const m = Math.floor(diff / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    document.getElementById('countdown').textContent =
-      String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-  }
-
-  // ── INIT ───────────────────────────────────────────────────────────────────
-  (async function init() {
-    const d = await fetch('/api/pois').then(r => r.json());
-    d.pois.forEach(p => {
-      if (p.night) nightSel.add(p.key);
-      if (p.day)   daySel.add(p.key);
-    });
-    // Apply card classes for both grids
-    document.querySelectorAll('.poi-card').forEach(card => updateCardClasses(card));
-    updateCounts();
-
-    await pollStatus();
-    document.getElementById('upload-mode').value = currentMode;
-    await pollLog();
-    setInterval(tickCountdown, 1000);
-    setInterval(pollLog,       3000);
-    setInterval(pollStatus,    8000);
-  })();
+  // Auto-refresh POI data every loop-interval to keep owners fresh
+  setInterval(async () => {
+    const d = await fetch('/api/status').then(r=>r.json()).catch(()=>null);
+    if (d?.loop_enabled) doSync();
+  }, 60000);
+})();
 </script>
 </body>
 </html>
